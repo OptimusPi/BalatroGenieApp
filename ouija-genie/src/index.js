@@ -1,5 +1,6 @@
 // Cloudflare Worker for Balatro Seed Oracle Config Generator
 import Ajv from 'ajv';
+import { Ai } from '@cloudflare/ai';
 
 // Schema definition 
 const OUIJA_SCHEMA = {
