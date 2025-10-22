@@ -195,6 +195,51 @@ const OUIJA_SCHEMA = {
   "required": ["name", "deck", "stake", "must"]
 };
 
+// Helper function to fix common AI output issues
+function fixCommonIssues(config) {
+  // Ensure must, should, mustNot are arrays
+  if (!config.must) config.must = [];
+  if (!config.should) config.should = [];
+  if (!config.mustNot) config.mustNot = [];
+
+  // Set defaults if missing
+  if (!config.deck) config.deck = "Red";
+  if (!config.stake) config.stake = "White";
+  if (!config.author) config.author = "AI Generated";
+
+  // Fix common naming errors (underscores -> no underscores)
+  const fixDeckName = (deck) => {
+    return deck.replace(/_/g, '');
+  };
+  const fixStakeName = (stake) => {
+    return stake.replace(/_/g, '');
+  };
+
+  config.deck = fixDeckName(config.deck);
+  config.stake = fixStakeName(config.stake);
+
+  // Ensure Edition is capitalized correctly
+  const fixEdition = (constraint) => {
+    if (constraint.Edition) {
+      const edMap = {
+        'none': 'None',
+        'foil': 'Foil',
+        'holographic': 'Holographic',
+        'polychrome': 'Polychrome',
+        'negative': 'Negative'
+      };
+      constraint.Edition = edMap[constraint.Edition.toLowerCase()] || constraint.Edition;
+    }
+    return constraint;
+  };
+
+  config.must = config.must.map(fixEdition);
+  config.should = config.should.map(fixEdition);
+  config.mustNot = config.mustNot.map(fixEdition);
+
+  return config;
+}
+
 // Balatro knowledge base for the LLM
 const BALATRO_KNOWLEDGE = {
   jokers: {
@@ -239,67 +284,78 @@ const BALATRO_KNOWLEDGE = {
   }
 };
 
-// System prompt for the LLM
-const SYSTEM_PROMPT = `You are a config generator for the Balatro Seed Oracle. Given a natural language prompt, generate a valid JSON config file that matches the new Motely schema format.
+// Few-shot examples to teach the LLM
+const FEW_SHOT_EXAMPLES = [
+  {
+    prompt: "I want Wee Joker and good economy on Blue deck",
+    output: {
+      "name": "Wee Economy",
+      "description": "Blue deck with Wee Joker and economy jokers",
+      "author": "AI Generated",
+      "deck": "Blue",
+      "stake": "White",
+      "must": [
+        {"type": "Joker", "value": "WeeJoker", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]},
+        {"type": "Joker", "values": ["GoldenTicket", "BusinessCard", "CouponBook"], "Edition": "None", "antes": [1,2,3], "shopSlots": [0,1,2]}
+      ],
+      "should": [],
+      "mustNot": []
+    }
+  },
+  {
+    prompt: "Blueprint and Baron combo by ante 4",
+    output: {
+      "name": "Blueprint Baron",
+      "description": "Find Blueprint and Baron combo early",
+      "author": "AI Generated",
+      "deck": "Red",
+      "stake": "White",
+      "must": [
+        {"type": "Joker", "value": "Blueprint", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]},
+        {"type": "Joker", "value": "Baron", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]}
+      ],
+      "should": [],
+      "mustNot": []
+    }
+  }
+];
 
-SCHEMA FORMAT:
+// System prompt for the LLM (optimized for coder models)
+const SYSTEM_PROMPT = `You are a JSON config generator for Balatro Seed Oracle. Generate valid JSON matching the schema below.
+
+CRITICAL RULES:
+1. Output ONLY valid JSON - no markdown, no explanations, no comments
+2. Use PascalCase for all joker names: Blueprint, HangingChad, OopsAll6s, WeeJoker
+3. Decks: Red, Blue, Yellow, Green, Black, Magic, Nebula, Ghost, Abandoned, Checkered, Zodiac, Painted, Anaglyph, Plasma, Erratic
+4. Stakes: White, Red, Green, Black, Blue, Purple, Orange, Gold
+5. Editions: None, Foil, Holographic, Polychrome, Negative
+
+SLANG TRANSLATIONS:
+- "dice" → OopsAll6s
+- "wee" → WeeJoker
+- "bus" → RideTheBus
+- "econ"/"economy" → GoldenTicket, BusinessCard, CouponBook, Rocket
+- "blueprint" → Blueprint
+- "brain" → Brainstorm
+
+SCHEMA:
 {
-  "name": "Config Name",
-  "description": "What this searches for",
+  "name": "string",
+  "description": "string",
   "author": "AI Generated",
-  "deck": "Red",  // Options: Red, Blue, Yellow, Green, Black, Magic, Nebula, Ghost, Abandoned, Checkered, Zodiac, Painted, Anaglyph, Plasma, Erratic
-  "stake": "White",  // Options: White, Red, Green, Black, Blue, Purple, Orange, Gold
-  "must": [
-    // Required constraints - all must be satisfied
-    {
-      "type": "Joker",  // Options: Joker, SmallBlindTag, voucher, SoulJoker, Tarot, Planet, Spectral, Or
-      "value": "JokerName",  // Single joker name (use PascalCase like HangingChad, Blueprint, OopsAll6s)
-      // OR "values": ["Joker1", "Joker2"],  // Multiple options (finds any of these)
-      "Edition": "None",  // Options: None, Foil, Holographic, Polychrome, Negative
-      "antes": [1,2,3],  // Which antes to search in
-      "shopSlots": [0,1,2]  // Which shop slots to check (0-indexed)
-      // OR "packSlots": [0,1,2]  // For pack-based searches
-      // OR "sources": { "shopSlots": [0,1,2], "packSlots": [0,1,2] }  // Both sources
-    }
-  ],
-  "should": [
-    // Optional constraints - add points/score when found
-    {
-      "type": "Joker",
-      "values": ["Blueprint", "Brainstorm"],
-      "Edition": "Negative",
-      "antes": [2,3,4],
-      "shopSlots": [0,1],
-      "score": 1  // Points awarded when found (optional, for scoring)
-    }
-  ],
-  "mustNot": [
-    // Anti-constraints - seed is rejected if these are found
-  ]
+  "deck": "Red",
+  "stake": "White",
+  "must": [{"type": "Joker", "value": "JokerName", "Edition": "None", "antes": [1,2,3], "shopSlots": [0,1,2]}],
+  "should": [],
+  "mustNot": []
 }
 
-RULES:
-1. Use PascalCase for joker names: "Blueprint", "HangingChad", "OopsAll6s", "WeeJoker", "GoldenTicket"
-2. Translate slang: "dice" → "OopsAll6s", "wee" → "WeeJoker", "bus" → "RideTheBus"
-3. Default to "Red" deck and "White" stake if not specified (NOT "Red_Deck" or "White_Stake")
-4. For "good econ", use: GoldenTicket, BusinessCard, CouponBook, Rocket
-5. If joker needs prerequisite (GoldenTicket needs The Devil tarot), add to must
-6. Use "values" array when user wants "any of these", use "value" string for specific joker
-7. shopSlots: [0,1,2] means first 3 shop positions
-8. For Anaglyph deck with negative tags, use type: "SmallBlindTag", value: "NegativeTag"
-9. For legendary jokers, use type: "SoulJoker"
-10. Generate descriptive name and description based on prompt
-11. "must" array is required, "should" and "mustNot" can be empty arrays
+EXAMPLES:
+Input: "Wee Joker and good economy on Blue deck"
+Output: ${JSON.stringify(FEW_SHOT_EXAMPLES[0].output)}
 
-JOKER EXAMPLES:
-Common: Joker, GreedyJoker, LustyJoker, Banner, CreditCard, HalfJoker
-Uncommon: ScaryFace, FourFingers, Mime, Hack, Blueprint, Brainstorm, LoyaltyCard
-Rare: Baron, SeeingDouble, SmearedJoker, InvisibleJoker, HangingChad, Cartomancer
-Legendary (SoulJoker): Perkeo, Canio, Triboulet, Yorick, Chicot
-
-Knowledge base: ${JSON.stringify(BALATRO_KNOWLEDGE)}
-
-Return ONLY the JSON config, no explanation or markdown.`;
+Input: "Blueprint and Baron combo by ante 4"
+Output: ${JSON.stringify(FEW_SHOT_EXAMPLES[1].output)}`;
 
 // HTML interface
 const HTML_INTERFACE = `<!DOCTYPE html>
@@ -748,35 +804,51 @@ export default {
         });
       }
 
-      // Call AI
+      // Call AI with optimized model and parameters
       const ai = new Ai(env.AI);
-      
+
       const messages = [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Generate a config for: ${prompt}` }
+        { role: 'user', content: prompt } // Direct prompt, no extra text
       ];
 
-      const response = await ai.run('@cf/meta/llama-3-8b-instruct', { 
+      // Using Qwen2.5-Coder-32B - excellent for structured JSON output
+      const response = await ai.run('@cf/qwen/qwen2.5-coder-32b-instruct', {
         messages,
-        temperature: 0.3 // Lower temperature for more consistent JSON
+        temperature: 0.1, // Very low for consistent JSON
+        max_tokens: 1000  // Limit output for speed
       });
 
-      // Parse LLM response
+      // Parse LLM response with better extraction
       let config;
       try {
-        // Extract JSON from response (handle if LLM adds extra text)
-        const jsonMatch = response.response.match(/\{[\s\S]*\}/);
+        const llmOutput = response.response || response;
+
+        // Try to extract JSON (handle markdown code blocks, extra text, etc.)
+        let jsonStr = llmOutput;
+
+        // Remove markdown code blocks if present
+        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+        // Extract JSON object (greedy match)
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error('No JSON found in response');
+          throw new Error('No JSON object found in response');
         }
+
         config = JSON.parse(jsonMatch[0]);
+
+        // Post-process: Fix common issues
+        config = fixCommonIssues(config);
+
       } catch (e) {
-        return new Response(JSON.stringify({ 
-          error: 'Invalid JSON from LLM', 
-          llm_response: response.response 
-        }), { 
-          status: 500, 
-          headers: corsHeaders 
+        return new Response(JSON.stringify({
+          error: 'Failed to parse LLM output',
+          details: e.message,
+          llm_response: response.response || response
+        }), {
+          status: 500,
+          headers: corsHeaders
         });
       }
 
