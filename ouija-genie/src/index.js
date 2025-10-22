@@ -2,81 +2,197 @@
 import Ajv from 'ajv';
 import { Ai } from '@cloudflare/ai';
 
-// Schema definition 
+// Schema definition (updated to match Motely format)
 const OUIJA_SCHEMA = {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Ouija Configuration Schema",
   "type": "object",
   "properties": {
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "author": { "type": "string" },
-    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
-    "filter_config": {
-      "type": "object",
-      "properties": {
-        "deck": {
-          "type": "string",
-          "enum": ["Red_Deck", "Blue_Deck", "Yellow_Deck", "Green_Deck", "Black_Deck", "Magic_Deck", "Nebula_Deck", "Ghost_Deck", "Abandoned_Deck", "Checkered_Deck", "Zodiac_Deck", "Painted_Deck", "Anaglyph_Deck", "Plasma_Deck", "Erratic_Deck"]
-        },
-        "stake": {
-          "type": "string",
-          "enum": ["White_Stake", "Red_Stake", "Green_Stake", "Black_Stake", "Blue_Stake", "Purple_Stake", "Orange_Stake", "Gold_Stake"]
-        },
-        "maxSearchAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-        "startAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 1 },
-        "scoreNaturalNegatives": { "type": "boolean", "default": false },
-        "scoreDesiredNegatives": { "type": "boolean", "default": false },
-        "jokersPerAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 4 },
-        "shopSkipCount": { "type": "integer", "minimum": 0, "maximum": 8, "default": 2 },
-        "searchNegativeTags": { "type": "boolean", "default": false },
-        "searchPacks": { "type": "boolean", "default": false },
-        "countNegativeEditions": { "type": "boolean", "default": false },
-        "useDeepSearch": { "type": "boolean", "default": false },
-        "deepSearchWindow": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-        "deepSearchSlide": { "type": "integer", "minimum": 1, "maximum": 8, "default": 2 },
-        "deepSearchTotal": { "type": "integer", "minimum": 1, "maximum": 16, "default": 16 },
-        "numNeeds": { "type": "integer", "minimum": 0, "maximum": 32 },
-        "numWants": { "type": "integer", "minimum": 0, "maximum": 32 },
-        "Needs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "value": { "type": "string" },
-              "jokeredition": { "type": "string", "enum": ["No_Edition", "Foil", "Holographic", "Polychrome", "Negative"], "default": "No_Edition" },
-              "desireByAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-              "minMatches": { "type": "integer", "minimum": 1, "default": 1 },
-              "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [1,2,3,4,5,6,7,8] }
-            },
-            "required": ["value"]
-          }
-        },
-        "Wants": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "value": { "type": "string" },
-              "jokeredition": { "type": "string", "enum": ["No_Edition", "Foil", "Holographic", "Polychrome", "Negative"], "default": "No_Edition" },
-              "desireByAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-              "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [1,2,3,4,5,6,7,8] }
-            },
-            "required": ["value"]
-          }
-        }
-      },
-      "required": ["deck", "stake"]
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this configuration"
     },
-    "anaglyph_config": {
-      "type": "object",
-      "properties": {
-        "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [8] },
-        "searchWindow": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 }
+    "description": {
+      "type": "string",
+      "description": "Description of what this configuration searches for"
+    },
+    "author": {
+      "type": "string",
+      "description": "Configuration author"
+    },
+    "deck": {
+      "type": "string",
+      "description": "Deck to use for the search",
+      "enum": ["Red", "Blue", "Yellow", "Green", "Black", "Magic", "Nebula", "Ghost", "Abandoned", "Checkered", "Zodiac", "Painted", "Anaglyph", "Plasma", "Erratic"]
+    },
+    "stake": {
+      "type": "string",
+      "description": "Stake level for the search",
+      "enum": ["White", "Red", "Green", "Black", "Blue", "Purple", "Orange", "Gold"]
+    },
+    "must": {
+      "type": "array",
+      "description": "Required constraints that must be satisfied",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "mode": { "type": "string" },
+          "Clauses": { "type": "array" },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          }
+        },
+        "required": ["type"]
+      }
+    },
+    "should": {
+      "type": "array",
+      "description": "Optional constraints that add to the score",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "score": { "type": "number" },
+          "mode": { "type": "string" },
+          "Clauses": { "type": "array" },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          }
+        },
+        "required": ["type"]
+      }
+    },
+    "mustNot": {
+      "type": "array",
+      "description": "Constraints that must not be satisfied",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              }
+            }
+          },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+          }
+        },
+        "required": ["type"]
       }
     }
   },
-  "required": ["name", "filter_config"]
+  "required": ["name", "deck", "stake", "must"]
 };
 
 // Balatro knowledge base for the LLM
@@ -124,22 +240,66 @@ const BALATRO_KNOWLEDGE = {
 };
 
 // System prompt for the LLM
-const SYSTEM_PROMPT = `You are a config generator for the Balatro Seed Oracle. Given a natural language prompt, generate a valid JSON config file that matches the ouija.json schema.
+const SYSTEM_PROMPT = `You are a config generator for the Balatro Seed Oracle. Given a natural language prompt, generate a valid JSON config file that matches the new Motely schema format.
 
-Rules:
-- Only use real Balatro items from the provided list
-- Respect item synergies and prerequisites
-- Translate slang (e.g. "dice" → "Oops_All_6s")
-- Avoid made-up items or mechanics
-- Default to Red_Deck and White_Stake if not specified
-- If a user asks for "good econ", prioritize jokers like "Golden_Ticket", "Business_Card", or "Coupon_Book"
-- If a joker requires a tarot card (e.g. "Golden_Ticket" needs "The Devil"), include that in Needs
-- Generate a descriptive name and description based on the prompt
-- Set reasonable defaults for search parameters
+SCHEMA FORMAT:
+{
+  "name": "Config Name",
+  "description": "What this searches for",
+  "author": "AI Generated",
+  "deck": "Red",  // Options: Red, Blue, Yellow, Green, Black, Magic, Nebula, Ghost, Abandoned, Checkered, Zodiac, Painted, Anaglyph, Plasma, Erratic
+  "stake": "White",  // Options: White, Red, Green, Black, Blue, Purple, Orange, Gold
+  "must": [
+    // Required constraints - all must be satisfied
+    {
+      "type": "Joker",  // Options: Joker, SmallBlindTag, voucher, SoulJoker, Tarot, Planet, Spectral, Or
+      "value": "JokerName",  // Single joker name (use PascalCase like HangingChad, Blueprint, OopsAll6s)
+      // OR "values": ["Joker1", "Joker2"],  // Multiple options (finds any of these)
+      "Edition": "None",  // Options: None, Foil, Holographic, Polychrome, Negative
+      "antes": [1,2,3],  // Which antes to search in
+      "shopSlots": [0,1,2]  // Which shop slots to check (0-indexed)
+      // OR "packSlots": [0,1,2]  // For pack-based searches
+      // OR "sources": { "shopSlots": [0,1,2], "packSlots": [0,1,2] }  // Both sources
+    }
+  ],
+  "should": [
+    // Optional constraints - add points/score when found
+    {
+      "type": "Joker",
+      "values": ["Blueprint", "Brainstorm"],
+      "Edition": "Negative",
+      "antes": [2,3,4],
+      "shopSlots": [0,1],
+      "score": 1  // Points awarded when found (optional, for scoring)
+    }
+  ],
+  "mustNot": [
+    // Anti-constraints - seed is rejected if these are found
+  ]
+}
+
+RULES:
+1. Use PascalCase for joker names: "Blueprint", "HangingChad", "OopsAll6s", "WeeJoker", "GoldenTicket"
+2. Translate slang: "dice" → "OopsAll6s", "wee" → "WeeJoker", "bus" → "RideTheBus"
+3. Default to "Red" deck and "White" stake if not specified (NOT "Red_Deck" or "White_Stake")
+4. For "good econ", use: GoldenTicket, BusinessCard, CouponBook, Rocket
+5. If joker needs prerequisite (GoldenTicket needs The Devil tarot), add to must
+6. Use "values" array when user wants "any of these", use "value" string for specific joker
+7. shopSlots: [0,1,2] means first 3 shop positions
+8. For Anaglyph deck with negative tags, use type: "SmallBlindTag", value: "NegativeTag"
+9. For legendary jokers, use type: "SoulJoker"
+10. Generate descriptive name and description based on prompt
+11. "must" array is required, "should" and "mustNot" can be empty arrays
+
+JOKER EXAMPLES:
+Common: Joker, GreedyJoker, LustyJoker, Banner, CreditCard, HalfJoker
+Uncommon: ScaryFace, FourFingers, Mime, Hack, Blueprint, Brainstorm, LoyaltyCard
+Rare: Baron, SeeingDouble, SmearedJoker, InvisibleJoker, HangingChad, Cartomancer
+Legendary (SoulJoker): Perkeo, Canio, Triboulet, Yorick, Chicot
 
 Knowledge base: ${JSON.stringify(BALATRO_KNOWLEDGE)}
 
-Return ONLY the JSON config, no explanation.`;
+Return ONLY the JSON config, no explanation or markdown.`;
 
 // HTML interface
 const HTML_INTERFACE = `<!DOCTYPE html>
@@ -618,16 +778,6 @@ export default {
           status: 500, 
           headers: corsHeaders 
         });
-      }
-
-      // Auto-calculate numNeeds and numWants
-      if (config.filter_config) {
-        if (config.filter_config.Needs) {
-          config.filter_config.numNeeds = config.filter_config.Needs.length;
-        }
-        if (config.filter_config.Wants) {
-          config.filter_config.numWants = config.filter_config.Wants.length;
-        }
       }
 
       // Validate against schema
