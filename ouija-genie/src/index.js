@@ -38,7 +38,7 @@ const OUIJA_SCHEMA = {
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
           },
           "value": { "type": "string" },
           "values": {
@@ -49,9 +49,13 @@ const OUIJA_SCHEMA = {
             "type": "string",
             "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
           },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
           "antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           },
           "shopSlots": {
             "type": "array",
@@ -71,6 +75,14 @@ const OUIJA_SCHEMA = {
               "packSlots": {
                 "type": "array",
                 "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
@@ -78,7 +90,7 @@ const OUIJA_SCHEMA = {
           "Clauses": { "type": "array" },
           "Antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           }
         },
         "required": ["type"]
@@ -92,7 +104,7 @@ const OUIJA_SCHEMA = {
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
           },
           "value": { "type": "string" },
           "values": {
@@ -103,9 +115,13 @@ const OUIJA_SCHEMA = {
             "type": "string",
             "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
           },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
           "antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           },
           "shopSlots": {
             "type": "array",
@@ -125,6 +141,14 @@ const OUIJA_SCHEMA = {
               "packSlots": {
                 "type": "array",
                 "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
@@ -133,7 +157,7 @@ const OUIJA_SCHEMA = {
           "Clauses": { "type": "array" },
           "Antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           }
         },
         "required": ["type"]
@@ -147,7 +171,7 @@ const OUIJA_SCHEMA = {
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "Tarot", "Planet", "Spectral"]
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
           },
           "value": { "type": "string" },
           "values": {
@@ -158,9 +182,13 @@ const OUIJA_SCHEMA = {
             "type": "string",
             "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
           },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
           "antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           },
           "shopSlots": {
             "type": "array",
@@ -180,12 +208,20 @@ const OUIJA_SCHEMA = {
               "packSlots": {
                 "type": "array",
                 "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
               }
             }
           },
           "Antes": {
             "type": "array",
-            "items": { "type": "integer", "minimum": 1, "maximum": 16 }
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
           }
         },
         "required": ["type"]
@@ -236,6 +272,39 @@ function fixCommonIssues(config) {
   config.must = config.must.map(fixEdition);
   config.should = config.should.map(fixEdition);
   config.mustNot = config.mustNot.map(fixEdition);
+
+  return config;
+}
+
+// Validate sticker-stake requirements
+function validateStickerStakeRequirements(config) {
+  const stakeOrder = ["White", "Red", "Green", "Black", "Blue", "Purple", "Orange", "Gold"];
+  const currentStakeLevel = stakeOrder.indexOf(config.stake);
+
+  const stickerRequirements = {
+    "Eternal": stakeOrder.indexOf("Black"),  // Black or higher
+    "Rental": stakeOrder.indexOf("Orange"),  // Orange or higher
+    "Perishable": stakeOrder.indexOf("Gold") // Gold stake
+  };
+
+  // Check all constraints in must, should, mustNot
+  const checkConstraints = (constraints) => {
+    for (const constraint of constraints) {
+      if (constraint.Sticker && constraint.Sticker !== "None") {
+        const requiredLevel = stickerRequirements[constraint.Sticker];
+        if (requiredLevel !== undefined && currentStakeLevel < requiredLevel) {
+          const requiredStake = stakeOrder[requiredLevel];
+          // Auto-upgrade stake to meet requirement
+          config.stake = requiredStake;
+          console.log(`Auto-upgraded stake to ${requiredStake} for ${constraint.Sticker} sticker`);
+        }
+      }
+    }
+  };
+
+  if (config.must) checkConstraints(config.must);
+  if (config.should) checkConstraints(config.should);
+  if (config.mustNot) checkConstraints(config.mustNot);
 
   return config;
 }
@@ -329,6 +398,14 @@ CRITICAL RULES:
 3. Decks: Red, Blue, Yellow, Green, Black, Magic, Nebula, Ghost, Abandoned, Checkered, Zodiac, Painted, Anaglyph, Plasma, Erratic
 4. Stakes: White, Red, Green, Black, Blue, Purple, Orange, Gold
 5. Editions: None, Foil, Holographic, Polychrome, Negative
+6. Stickers: None, Eternal, Rental, Perishable
+7. Antes range from 0 to 39 (0 = pre-run shop)
+8. Use "Sources": {} block after "Antes" to specify shopSlots, packSlots, or minShopSlot/maxShopSlot
+
+STICKER REQUIREMENTS (auto-enforced):
+- Eternal sticker requires Black stake or higher
+- Rental sticker requires Orange stake or higher
+- Perishable sticker requires Gold stake
 
 SLANG TRANSLATIONS:
 - "dice" → OopsAll6s
@@ -338,6 +415,10 @@ SLANG TRANSLATIONS:
 - "blueprint" → Blueprint
 - "brain" → Brainstorm
 
+OPERATORS:
+- Use "Or" operator for any-of conditions
+- Use "And" operator for all-of conditions (nested constraints)
+
 SCHEMA:
 {
   "name": "string",
@@ -345,7 +426,20 @@ SCHEMA:
   "author": "AI Generated",
   "deck": "Red",
   "stake": "White",
-  "must": [{"type": "Joker", "value": "JokerName", "Edition": "None", "antes": [1,2,3], "shopSlots": [0,1,2]}],
+  "must": [
+    {
+      "type": "Joker",
+      "value": "JokerName",
+      "Edition": "None",
+      "Sticker": "None",
+      "Antes": [0,1,2,3],
+      "Sources": {
+        "shopSlots": [0,1,2],
+        "minShopSlot": 0,
+        "maxShopSlot": 5
+      }
+    }
+  ],
   "should": [],
   "mustNot": []
 }
@@ -840,6 +934,9 @@ export default {
 
         // Post-process: Fix common issues
         config = fixCommonIssues(config);
+
+        // Validate and auto-upgrade stake for sticker requirements
+        config = validateStickerStakeRequirements(config);
 
       } catch (e) {
         return new Response(JSON.stringify({
