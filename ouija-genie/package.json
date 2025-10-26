@@ -1,7 +1,7 @@
 {
-  "name": "ouija-genie",
+  "name": "balatro-genie",
   "version": "1.0.0",
-  "description": "Cloudflare Worker for Balatro Seed Oracle config generation",
+  "description": "Cloudflare Worker for Balatro Genie - AI-powered seed config generator",
   "main": "src/index.js",
   "scripts": {
     "dev": "wrangler dev",

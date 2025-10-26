@@ -3,9 +3,9 @@ import Ajv from 'ajv';
 import { Ai } from '@cloudflare/ai';
 
 // Schema definition (updated to match Motely format)
-const OUIJA_SCHEMA = {
+const BALATRO_GENIE_SCHEMA = {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Ouija Configuration Schema",
+  "title": "Balatro Genie Configuration Schema",
   "type": "object",
   "properties": {
     "name": {
@@ -457,7 +457,7 @@ const HTML_INTERFACE = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🧞 Ouija Genie - Balatro Seed Config Generator</title>
+    <title>🧞 Balatro Genie - AI Seed Config Generator</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
 
@@ -745,7 +745,7 @@ const HTML_INTERFACE = `<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <h1>🧞 Ouija Genie</h1>
+        <h1>🧞 Balatro Genie</h1>
         <p class="tagline">Natural language → Balatro seed configs</p>
         
         <div class="suit-icons">
@@ -951,7 +951,7 @@ export default {
 
       // Validate against schema
       const ajv = new Ajv();
-      const validate = ajv.compile(OUIJA_SCHEMA);
+      const validate = ajv.compile(BALATRO_GENIE_SCHEMA);
       const valid = validate(config);
 
       // Return response
