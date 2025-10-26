@@ -2,82 +2,312 @@
 import Ajv from 'ajv';
 import { Ai } from '@cloudflare/ai';
 
-// Schema definition 
+// Schema definition (updated to match Motely format)
 const OUIJA_SCHEMA = {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Ouija Configuration Schema",
   "type": "object",
   "properties": {
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "author": { "type": "string" },
-    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
-    "filter_config": {
-      "type": "object",
-      "properties": {
-        "deck": {
-          "type": "string",
-          "enum": ["Red_Deck", "Blue_Deck", "Yellow_Deck", "Green_Deck", "Black_Deck", "Magic_Deck", "Nebula_Deck", "Ghost_Deck", "Abandoned_Deck", "Checkered_Deck", "Zodiac_Deck", "Painted_Deck", "Anaglyph_Deck", "Plasma_Deck", "Erratic_Deck"]
-        },
-        "stake": {
-          "type": "string",
-          "enum": ["White_Stake", "Red_Stake", "Green_Stake", "Black_Stake", "Blue_Stake", "Purple_Stake", "Orange_Stake", "Gold_Stake"]
-        },
-        "maxSearchAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-        "startAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 1 },
-        "scoreNaturalNegatives": { "type": "boolean", "default": false },
-        "scoreDesiredNegatives": { "type": "boolean", "default": false },
-        "jokersPerAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 4 },
-        "shopSkipCount": { "type": "integer", "minimum": 0, "maximum": 8, "default": 2 },
-        "searchNegativeTags": { "type": "boolean", "default": false },
-        "searchPacks": { "type": "boolean", "default": false },
-        "countNegativeEditions": { "type": "boolean", "default": false },
-        "useDeepSearch": { "type": "boolean", "default": false },
-        "deepSearchWindow": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-        "deepSearchSlide": { "type": "integer", "minimum": 1, "maximum": 8, "default": 2 },
-        "deepSearchTotal": { "type": "integer", "minimum": 1, "maximum": 16, "default": 16 },
-        "numNeeds": { "type": "integer", "minimum": 0, "maximum": 32 },
-        "numWants": { "type": "integer", "minimum": 0, "maximum": 32 },
-        "Needs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "value": { "type": "string" },
-              "jokeredition": { "type": "string", "enum": ["No_Edition", "Foil", "Holographic", "Polychrome", "Negative"], "default": "No_Edition" },
-              "desireByAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-              "minMatches": { "type": "integer", "minimum": 1, "default": 1 },
-              "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [1,2,3,4,5,6,7,8] }
-            },
-            "required": ["value"]
-          }
-        },
-        "Wants": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "value": { "type": "string" },
-              "jokeredition": { "type": "string", "enum": ["No_Edition", "Foil", "Holographic", "Polychrome", "Negative"], "default": "No_Edition" },
-              "desireByAnte": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 },
-              "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [1,2,3,4,5,6,7,8] }
-            },
-            "required": ["value"]
-          }
-        }
-      },
-      "required": ["deck", "stake"]
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this configuration"
     },
-    "anaglyph_config": {
-      "type": "object",
-      "properties": {
-        "searchAntes": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 16 }, "uniqueItems": true, "default": [8] },
-        "searchWindow": { "type": "integer", "minimum": 1, "maximum": 16, "default": 8 }
+    "description": {
+      "type": "string",
+      "description": "Description of what this configuration searches for"
+    },
+    "author": {
+      "type": "string",
+      "description": "Configuration author"
+    },
+    "deck": {
+      "type": "string",
+      "description": "Deck to use for the search",
+      "enum": ["Red", "Blue", "Yellow", "Green", "Black", "Magic", "Nebula", "Ghost", "Abandoned", "Checkered", "Zodiac", "Painted", "Anaglyph", "Plasma", "Erratic"]
+    },
+    "stake": {
+      "type": "string",
+      "description": "Stake level for the search",
+      "enum": ["White", "Red", "Green", "Black", "Blue", "Purple", "Orange", "Gold"]
+    },
+    "must": {
+      "type": "array",
+      "description": "Required constraints that must be satisfied",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "mode": { "type": "string" },
+          "Clauses": { "type": "array" },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          }
+        },
+        "required": ["type"]
+      }
+    },
+    "should": {
+      "type": "array",
+      "description": "Optional constraints that add to the score",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "score": { "type": "number" },
+          "mode": { "type": "string" },
+          "Clauses": { "type": "array" },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          }
+        },
+        "required": ["type"]
+      }
+    },
+    "mustNot": {
+      "type": "array",
+      "description": "Constraints that must not be satisfied",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Joker", "joker", "SmallBlindTag", "voucher", "SoulJoker", "Or", "And", "Tarot", "Planet", "Spectral"]
+          },
+          "value": { "type": "string" },
+          "values": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "Edition": {
+            "type": "string",
+            "enum": ["None", "Foil", "Holographic", "Polychrome", "Negative"]
+          },
+          "Sticker": {
+            "type": "string",
+            "enum": ["None", "Eternal", "Rental", "Perishable"]
+          },
+          "antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          },
+          "shopSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "packSlots": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "sources": {
+            "type": "object",
+            "properties": {
+              "shopSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "packSlots": {
+                "type": "array",
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "minShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxShopSlot": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "Antes": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 0, "maximum": 39 }
+          }
+        },
+        "required": ["type"]
       }
     }
   },
-  "required": ["name", "filter_config"]
+  "required": ["name", "deck", "stake", "must"]
 };
+
+// Helper function to fix common AI output issues
+function fixCommonIssues(config) {
+  // Ensure must, should, mustNot are arrays
+  if (!config.must) config.must = [];
+  if (!config.should) config.should = [];
+  if (!config.mustNot) config.mustNot = [];
+
+  // Set defaults if missing
+  if (!config.deck) config.deck = "Red";
+  if (!config.stake) config.stake = "White";
+  if (!config.author) config.author = "AI Generated";
+
+  // Fix common naming errors (underscores -> no underscores)
+  const fixDeckName = (deck) => {
+    return deck.replace(/_/g, '');
+  };
+  const fixStakeName = (stake) => {
+    return stake.replace(/_/g, '');
+  };
+
+  config.deck = fixDeckName(config.deck);
+  config.stake = fixStakeName(config.stake);
+
+  // Ensure Edition is capitalized correctly
+  const fixEdition = (constraint) => {
+    if (constraint.Edition) {
+      const edMap = {
+        'none': 'None',
+        'foil': 'Foil',
+        'holographic': 'Holographic',
+        'polychrome': 'Polychrome',
+        'negative': 'Negative'
+      };
+      constraint.Edition = edMap[constraint.Edition.toLowerCase()] || constraint.Edition;
+    }
+    return constraint;
+  };
+
+  config.must = config.must.map(fixEdition);
+  config.should = config.should.map(fixEdition);
+  config.mustNot = config.mustNot.map(fixEdition);
+
+  return config;
+}
+
+// Validate sticker-stake requirements
+function validateStickerStakeRequirements(config) {
+  const stakeOrder = ["White", "Red", "Green", "Black", "Blue", "Purple", "Orange", "Gold"];
+  const currentStakeLevel = stakeOrder.indexOf(config.stake);
+
+  const stickerRequirements = {
+    "Eternal": stakeOrder.indexOf("Black"),  // Black or higher
+    "Rental": stakeOrder.indexOf("Orange"),  // Orange or higher
+    "Perishable": stakeOrder.indexOf("Gold") // Gold stake
+  };
+
+  // Check all constraints in must, should, mustNot
+  const checkConstraints = (constraints) => {
+    for (const constraint of constraints) {
+      if (constraint.Sticker && constraint.Sticker !== "None") {
+        const requiredLevel = stickerRequirements[constraint.Sticker];
+        if (requiredLevel !== undefined && currentStakeLevel < requiredLevel) {
+          const requiredStake = stakeOrder[requiredLevel];
+          // Auto-upgrade stake to meet requirement
+          config.stake = requiredStake;
+          console.log(`Auto-upgraded stake to ${requiredStake} for ${constraint.Sticker} sticker`);
+        }
+      }
+    }
+  };
+
+  if (config.must) checkConstraints(config.must);
+  if (config.should) checkConstraints(config.should);
+  if (config.mustNot) checkConstraints(config.mustNot);
+
+  return config;
+}
 
 // Balatro knowledge base for the LLM
 const BALATRO_KNOWLEDGE = {
@@ -123,23 +353,103 @@ const BALATRO_KNOWLEDGE = {
   }
 };
 
-// System prompt for the LLM
-const SYSTEM_PROMPT = `You are a config generator for the Balatro Seed Oracle. Given a natural language prompt, generate a valid JSON config file that matches the ouija.json schema.
+// Few-shot examples to teach the LLM
+const FEW_SHOT_EXAMPLES = [
+  {
+    prompt: "I want Wee Joker and good economy on Blue deck",
+    output: {
+      "name": "Wee Economy",
+      "description": "Blue deck with Wee Joker and economy jokers",
+      "author": "AI Generated",
+      "deck": "Blue",
+      "stake": "White",
+      "must": [
+        {"type": "Joker", "value": "WeeJoker", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]},
+        {"type": "Joker", "values": ["GoldenTicket", "BusinessCard", "CouponBook"], "Edition": "None", "antes": [1,2,3], "shopSlots": [0,1,2]}
+      ],
+      "should": [],
+      "mustNot": []
+    }
+  },
+  {
+    prompt: "Blueprint and Baron combo by ante 4",
+    output: {
+      "name": "Blueprint Baron",
+      "description": "Find Blueprint and Baron combo early",
+      "author": "AI Generated",
+      "deck": "Red",
+      "stake": "White",
+      "must": [
+        {"type": "Joker", "value": "Blueprint", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]},
+        {"type": "Joker", "value": "Baron", "Edition": "None", "antes": [1,2,3,4], "shopSlots": [0,1,2,3,4]}
+      ],
+      "should": [],
+      "mustNot": []
+    }
+  }
+];
 
-Rules:
-- Only use real Balatro items from the provided list
-- Respect item synergies and prerequisites
-- Translate slang (e.g. "dice" → "Oops_All_6s")
-- Avoid made-up items or mechanics
-- Default to Red_Deck and White_Stake if not specified
-- If a user asks for "good econ", prioritize jokers like "Golden_Ticket", "Business_Card", or "Coupon_Book"
-- If a joker requires a tarot card (e.g. "Golden_Ticket" needs "The Devil"), include that in Needs
-- Generate a descriptive name and description based on the prompt
-- Set reasonable defaults for search parameters
+// System prompt for the LLM (optimized for coder models)
+const SYSTEM_PROMPT = `You are a JSON config generator for Balatro Seed Oracle. Generate valid JSON matching the schema below.
 
-Knowledge base: ${JSON.stringify(BALATRO_KNOWLEDGE)}
+CRITICAL RULES:
+1. Output ONLY valid JSON - no markdown, no explanations, no comments
+2. Use PascalCase for all joker names: Blueprint, HangingChad, OopsAll6s, WeeJoker
+3. Decks: Red, Blue, Yellow, Green, Black, Magic, Nebula, Ghost, Abandoned, Checkered, Zodiac, Painted, Anaglyph, Plasma, Erratic
+4. Stakes: White, Red, Green, Black, Blue, Purple, Orange, Gold
+5. Editions: None, Foil, Holographic, Polychrome, Negative
+6. Stickers: None, Eternal, Rental, Perishable
+7. Antes range from 0 to 39 (0 = pre-run shop)
+8. Use "Sources": {} block after "Antes" to specify shopSlots, packSlots, or minShopSlot/maxShopSlot
 
-Return ONLY the JSON config, no explanation.`;
+STICKER REQUIREMENTS (auto-enforced):
+- Eternal sticker requires Black stake or higher
+- Rental sticker requires Orange stake or higher
+- Perishable sticker requires Gold stake
+
+SLANG TRANSLATIONS:
+- "dice" → OopsAll6s
+- "wee" → WeeJoker
+- "bus" → RideTheBus
+- "econ"/"economy" → GoldenTicket, BusinessCard, CouponBook, Rocket
+- "blueprint" → Blueprint
+- "brain" → Brainstorm
+
+OPERATORS:
+- Use "Or" operator for any-of conditions
+- Use "And" operator for all-of conditions (nested constraints)
+
+SCHEMA:
+{
+  "name": "string",
+  "description": "string",
+  "author": "AI Generated",
+  "deck": "Red",
+  "stake": "White",
+  "must": [
+    {
+      "type": "Joker",
+      "value": "JokerName",
+      "Edition": "None",
+      "Sticker": "None",
+      "Antes": [0,1,2,3],
+      "Sources": {
+        "shopSlots": [0,1,2],
+        "minShopSlot": 0,
+        "maxShopSlot": 5
+      }
+    }
+  ],
+  "should": [],
+  "mustNot": []
+}
+
+EXAMPLES:
+Input: "Wee Joker and good economy on Blue deck"
+Output: ${JSON.stringify(FEW_SHOT_EXAMPLES[0].output)}
+
+Input: "Blueprint and Baron combo by ante 4"
+Output: ${JSON.stringify(FEW_SHOT_EXAMPLES[1].output)}`;
 
 // HTML interface
 const HTML_INTERFACE = `<!DOCTYPE html>
@@ -588,46 +898,55 @@ export default {
         });
       }
 
-      // Call AI
+      // Call AI with optimized model and parameters
       const ai = new Ai(env.AI);
-      
+
       const messages = [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Generate a config for: ${prompt}` }
+        { role: 'user', content: prompt } // Direct prompt, no extra text
       ];
 
-      const response = await ai.run('@cf/meta/llama-3-8b-instruct', { 
+      // Using Qwen2.5-Coder-32B - excellent for structured JSON output
+      const response = await ai.run('@cf/qwen/qwen2.5-coder-32b-instruct', {
         messages,
-        temperature: 0.3 // Lower temperature for more consistent JSON
+        temperature: 0.1, // Very low for consistent JSON
+        max_tokens: 1000  // Limit output for speed
       });
 
-      // Parse LLM response
+      // Parse LLM response with better extraction
       let config;
       try {
-        // Extract JSON from response (handle if LLM adds extra text)
-        const jsonMatch = response.response.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error('No JSON found in response');
-        }
-        config = JSON.parse(jsonMatch[0]);
-      } catch (e) {
-        return new Response(JSON.stringify({ 
-          error: 'Invalid JSON from LLM', 
-          llm_response: response.response 
-        }), { 
-          status: 500, 
-          headers: corsHeaders 
-        });
-      }
+        const llmOutput = response.response || response;
 
-      // Auto-calculate numNeeds and numWants
-      if (config.filter_config) {
-        if (config.filter_config.Needs) {
-          config.filter_config.numNeeds = config.filter_config.Needs.length;
+        // Try to extract JSON (handle markdown code blocks, extra text, etc.)
+        let jsonStr = llmOutput;
+
+        // Remove markdown code blocks if present
+        jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+        // Extract JSON object (greedy match)
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error('No JSON object found in response');
         }
-        if (config.filter_config.Wants) {
-          config.filter_config.numWants = config.filter_config.Wants.length;
-        }
+
+        config = JSON.parse(jsonMatch[0]);
+
+        // Post-process: Fix common issues
+        config = fixCommonIssues(config);
+
+        // Validate and auto-upgrade stake for sticker requirements
+        config = validateStickerStakeRequirements(config);
+
+      } catch (e) {
+        return new Response(JSON.stringify({
+          error: 'Failed to parse LLM output',
+          details: e.message,
+          llm_response: response.response || response
+        }), {
+          status: 500,
+          headers: corsHeaders
+        });
       }
 
       // Validate against schema
