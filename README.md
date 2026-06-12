@@ -1,32 +1,57 @@
-# 🧞 Ouija Genie Setup
+# 🧞 Balatro Genie
 
-Natural language to ouija.json config generator for Balatro Seed Oracle.
+A **minimalist, client-side Balatro seed searcher**. Write a [JAML](https://mcp.seedfinder.app/mcp)
+filter, hit search, and [`motely-wasm`](https://www.npmjs.com/package/motely-wasm)
+grinds the 2.25-trillion-seed space **entirely in your browser** — no server, no
+backend, no API keys. ~600k seeds/s on a single thread on a phone.
 
-## Quick Start
+## Stack
+
+- **Vite + React + TypeScript** — static SPA, nothing else.
+- **motely-wasm** (`^21.2.0`) — the AOT/SIMD seed engine, embedded build
+  (base64-inlined WASM: no separate asset, no boot args, no COOP/COEP headers).
+- **No worker / single thread** — the search runs on the main thread in chunked
+  synchronous batches, yielding a macrotask between each so the UI stays live
+  and **Stop** lands instantly.
+
+## How it works
+
+`src/engine.ts` is the whole engine surface:
+
+1. `bootEngine()` — single-flight `bootsharp.boot()`.
+2. `validateJaml(jaml)` — `Program.fromJaml(jaml)` throws on invalid JAML.
+3. `runSearch(jaml, onHit, onProgress)` — sweeps batches of the seed space via
+   `Program.runSequentialSearch(...)`, streaming hits and progress out.
+
+Balatro seeds are 8 chars over a 35-char alphabet (35⁸ ≈ 2.25 trillion). The
+space is partitioned into 35⁵ batches; each synchronous engine call sweeps a
+contiguous range, and the loop walks forward (wrapping from a random start)
+until swept or stopped.
+
+## Develop
 
 ```bash
-cd ouija-genie
 npm install
-wrangler dev  # Test locally
-wrangler deploy  # Deploy to Cloudflare
+npm run dev        # vite dev server
+npm run build      # tsc + vite build → dist/
+npm run typecheck
 ```
 
-## Usage
+## Deploy (Vercel)
+
+Auto-detected as a Vite app — `vercel.json` pins the framework, build command,
+and `dist` output. Push the branch and import the repo, or:
 
 ```bash
-curl -X POST https://ouija-genie.balatrogenie.workers.dev/generate \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "I want seeds with Wee Joker and good economy"}'
+npx vercel --prod
 ```
 
-## Files
-- `ouija-genie/` - Cloudflare Worker that converts prompts to configs
-- `balatro-reference.md` - Complete Balatro item reference (150 jokers, consumables, etc.)
+It's a pure static site; everything runs on the visitor's CPU.
 
-## Features
-- Translates slang ("dice" → "Oops_All_6s")
-- Auto-includes prerequisites (Golden Ticket needs The Devil)
-- Schema validation
-- CORS enabled
+## JAML filters
 
-Built with KISS principles - no over-engineering!
+JAML (Jimbo's Ante Markup Language) is parsed and validated by the engine. Top-level
+keys: `name`, `deck`, `stake`, `must`, `should`, `mustNot` (at least one of the
+last three). Use the generic `joker:` discriminator. Draft filters with the
+Balatro Seed Curator MCP server at `https://mcp.seedfinder.app/mcp` (see
+`.mcp.json`).
