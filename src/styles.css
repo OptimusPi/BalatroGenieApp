@@ -92,7 +92,11 @@ body {
 .badge-purple {
   background: var(--purple);
 }
+.badge-gold {
+  background: var(--gold);
+}
 
+.toolbar,
 .presets {
   display: grid;
   grid-auto-flow: column;

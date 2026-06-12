@@ -20,13 +20,29 @@ backend, no API keys. ~600k seeds/s on a single thread on a phone.
 
 1. `bootEngine()` — single-flight `bootsharp.boot()`.
 2. `validateJaml(jaml)` — `Program.fromJaml(jaml)` throws on invalid JAML.
-3. `runSearch(jaml, onHit, onProgress)` — sweeps batches of the seed space via
-   `Program.runSequentialSearch(...)`, streaming hits and progress out.
+3. `runSearch(jaml, callbacks)` — a **two-phase** search:
+   - **seedlist** — first re-scores the seeds already saved in the filter's
+     `seeds:` list via `Program.runSeedListSearch(...)`.
+   - **sweep** — then continues across the full space via
+     `Program.runSequentialSearch(...)`, streaming hits and progress out.
 
 Balatro seeds are 8 chars over a 35-char alphabet (35⁸ ≈ 2.25 trillion). The
 space is partitioned into 35⁵ batches; each synchronous engine call sweeps a
 contiguous range, and the loop walks forward (wrapping from a random start)
 until swept or stopped.
+
+## Filters as files & the 3141 ratchet
+
+- **📂 Load / 💾 Save `.jaml`** — pull a filter in from disk, edit, and save it
+  back out (the file picker is just a hidden `<input type="file">` + a Blob
+  download; no upload, everything stays local).
+- **Best 3141 (π) ratchet** — as the search runs, the top **3141** seeds by
+  score (unique) are written back into the filter's `seeds: [...]` list live
+  (`src/jamlSeeds.ts` handles parse / strip / write, flow + block forms). Save
+  the file and the bests travel with the filter. Re-run and phase 1 re-scores
+  those saved seeds *before* sweeping for more — so each run only sharpens the
+  set. Strip `seeds:` before `fromJaml` and feed them via `config.seeds`, so
+  parsing never depends on the key.
 
 ## Develop
 
