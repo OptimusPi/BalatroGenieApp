@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   bootEngine,
+  MAX_BEST,
   runSearch,
   validateJaml,
   type SearchHandle,
+  type SearchPhase,
   type SeedHit,
 } from "./engine.ts";
+import { readName, writeSeeds } from "./jamlSeeds.ts";
 import { DEFAULT_JAML, PRESETS } from "./presets.ts";
 
 const MAX_ROWS = 50;
@@ -17,12 +20,15 @@ export function App() {
   const [bootError, setBootError] = useState<string | null>(null);
   const [jaml, setJaml] = useState(DEFAULT_JAML);
   const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<SearchPhase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SeedHit[]>([]);
   const [stats, setStats] = useState({ scanned: 0, hits: 0, seedsPerSecond: 0 });
+  const [bestCount, setBestCount] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleRef = useRef<SearchHandle | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,14 +73,19 @@ export function App() {
     };
 
     try {
-      const handle = runSearch(
-        jaml,
-        (hit) => {
+      const handle = runSearch(jaml, {
+        onHit: (hit) => {
           found.push(hit);
           paint(false);
         },
-        setStats,
-      );
+        onProgress: setStats,
+        onPhase: setPhase,
+        // Ratchet the best 3141 seeds back into the filter's `seeds:` list.
+        onBest: (seeds) => {
+          setBestCount(seeds.length);
+          setJaml((prev) => writeSeeds(prev, seeds));
+        },
+      });
       handleRef.current = handle;
       await handle.done;
       paint(true);
@@ -82,6 +93,7 @@ export function App() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       handleRef.current = null;
+      setPhase(null);
       setRunning(false);
     }
   }, [boot, running, jaml]);
@@ -89,6 +101,30 @@ export function App() {
   const onStop = useCallback(() => {
     handleRef.current?.stop();
   }, []);
+
+  const onLoadFile = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setJaml(String(reader.result ?? ""));
+      setBestCount(0);
+      setResults([]);
+      setError(null);
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const onSaveFile = useCallback(() => {
+    const blob = new Blob([jaml], { type: "text/yaml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(readName(jaml) ?? "balatro-filter").replace(/[^\w.-]+/g, "-")}.jaml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [jaml]);
 
   const onCopy = useCallback((seed: string) => {
     navigator.clipboard?.writeText(seed).then(
@@ -106,7 +142,9 @@ export function App() {
       : boot === "error"
         ? "engine error"
         : running
-          ? "searching"
+          ? phase === "seedlist"
+            ? "re-scoring saved seeds"
+            : "sweeping"
           : "ready";
 
   return (
@@ -126,7 +164,25 @@ export function App() {
         </span>
         <span className="badge badge-blue">{stats.seedsPerSecond.toLocaleString()}/s</span>
         <span className="badge badge-purple">{stats.hits.toLocaleString()} hits</span>
-        <span className="badge badge-grey">{stats.scanned.toLocaleString()} scanned</span>
+        <span className="badge badge-gold">
+          ★ {bestCount.toLocaleString()}/{MAX_BEST}
+        </span>
+      </div>
+
+      <div className="toolbar">
+        <button type="button" className="chip" disabled={running} onClick={() => fileRef.current?.click()}>
+          📂 Load .jaml
+        </button>
+        <button type="button" className="chip" onClick={onSaveFile}>
+          💾 Save .jaml
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".jaml,.yaml,.yml,.txt,text/yaml"
+          hidden
+          onChange={onLoadFile}
+        />
       </div>
 
       <div className="presets">
@@ -136,7 +192,10 @@ export function App() {
             type="button"
             className="chip"
             disabled={running}
-            onClick={() => setJaml(p.jaml)}
+            onClick={() => {
+              setJaml(p.jaml);
+              setBestCount(0);
+            }}
           >
             {p.label}
           </button>
@@ -162,12 +221,7 @@ export function App() {
           Stop
         </button>
       ) : (
-        <button
-          type="button"
-          className="run"
-          disabled={boot !== "ready"}
-          onClick={onSearch}
-        >
+        <button type="button" className="run" disabled={boot !== "ready"} onClick={onSearch}>
           {boot === "ready" ? "Search Seeds" : "Booting…"}
         </button>
       )}
