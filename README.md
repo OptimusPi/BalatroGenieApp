@@ -35,6 +35,24 @@ A `<script type="module">` in `index.html`:
 Balatro seeds are 8 chars over a 35-char alphabet (35⁸ ≈ 2.25 trillion),
 partitioned into 35⁵ batches.
 
+## Friendly JAML errors (jaml-lang)
+
+The engine throws a single opaque `C# exception from NativeAOT` for *any* bad
+JAML — a duplicate key, a typo'd enum, a missing field. Before searching, the
+app runs [`jaml-lang`](https://www.npmjs.com/package/jaml-lang) (the authoritative
+language server, loaded lazily from a CDN) to turn that into a real message with
+a line number — e.g. `line 10: Map keys must be unique` or
+`line 5: Invalid enum value. Expected … 'NegativeTag' …, received 'Negative'`. If
+the CDN is unreachable it silently falls back to the engine's own validation.
+
+## 🎲 Magic & auto-cutoff
+
+- **🎲 Magic** rolls a random `JamlAesthetic` (Palindrome · Echo · Gross · Funny
+  · Balatro) and runs `runAestheticSearch` in a Web Worker (one long synchronous
+  enumeration, so it can't run on the main thread; Stop terminates the worker).
+- The normal sweep runs with **auto-cutoff** on: the engine raises the score bar
+  as better seeds surface, so the best-3141 ratchet fills with the top seeds.
+
 ## Filters as files & the 3141 ratchet
 
 - **📂 Load / 💾 Save `.jaml`** — pull a filter in from disk, edit, save it back

@@ -16,6 +16,7 @@
     "react-dom": "https://esm.sh/react-dom@19",
     "react-dom/client": "https://esm.sh/react-dom@19/client",
     "htm": "https://esm.sh/htm@3.1.1",
+    "jaml-lang/service": "https://esm.sh/jaml-lang@0.2.0/service",
     "motely-wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/index.mjs",
     "motely-wasm/motely/wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/wasm.g.mjs",
     "motely-wasm/motely/enums": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/enums.g.mjs",
@@ -66,6 +67,8 @@ html, body { margin: 0; background: var(--bg); color: var(--text);
   letter-spacing: 0.02em; cursor: pointer; background: var(--orange); color: #0b1413; }
 .run:disabled { background: var(--grey); color: var(--muted); cursor: not-allowed; }
 .run-stop { background: var(--red); color: #fff; }
+.runrow { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.run-magic { background: var(--purple); color: #fff; }
 .results { list-style: none; margin: 0; padding: 0; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
 .seed { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px;
@@ -175,7 +178,34 @@ function bootEngine() {
   return bootPromise;
 }
 
+// Optional pre-flight lint via jaml-lang (the authoritative language server).
+// The engine throws one opaque "C# exception from NativeAOT" for ANY bad JAML
+// (duplicate keys, typo'd enums, …); jaml-lang turns that into a real message
+// with a line number. Loaded lazily so a CDN hiccup can never break the app —
+// if it's unavailable we fall back to the engine's own (opaque) validation.
+let getDiagnostics = null;
+let jamlLangTried = false;
+async function loadJamlLang() {
+  if (jamlLangTried) return;
+  jamlLangTried = true;
+  try {
+    const m = await import("jaml-lang/service");
+    getDiagnostics = m.getDiagnostics;
+  } catch (_) { /* lint unavailable; engine-only validation */ }
+}
+
 function validateJaml(jaml) {
+  // Friendly, line-numbered structural lint first (full editor text so the
+  // line numbers match what the user sees).
+  if (getDiagnostics) {
+    try {
+      const errs = getDiagnostics(jaml).filter((d) => d.severity === 1);
+      if (errs.length > 0) {
+        return errs.slice(0, 5).map((d) => `line ${d.range.start.line + 1}: ${d.message}`).join("\n");
+      }
+    } catch (_) { /* fall through to the engine */ }
+  }
+  // Authoritative engine check (catches anything the fast lint missed).
   try { Program.fromJaml(stripSeeds(jaml)); return null; }
   catch (e) { return e instanceof Error ? e.message : String(e); }
 }
@@ -238,7 +268,14 @@ function runSearch(jaml, cb) {
       while (covered < TOTAL_BATCHES && !stopped) {
         await new Promise((res) => setTimeout(res, 0)); // yield: paint + Stop land
         const end = Math.min(cursor + BATCHES_PER_RANGE, TOTAL_BATCHES);
-        const run = Program.runSequentialSearch(config, BigInt(cursor), BigInt(end), BATCH_CHARS);
+        // progressReportIntervalMs MUST be passed (a bigint) — omitting this
+        // optional marshals `undefined` where the AOT engine expects a long and
+        // throws the opaque "C# exception from NativeAOT". 100n gives the engine
+        // the progress ticks autoScoreCutoff needs to engage: on a hit-heavy
+        // filter it auto-raises the score bar as better seeds surface, so weak
+        // hits stop firing and the ratchet fills with the best. Matches
+        // seedfinder's browser-verified auto-cutoff sweep call.
+        const run = Program.runSequentialSearch(config, BigInt(cursor), BigInt(end), BATCH_CHARS, 100n, true);
         scanned += Number(run.totalSeedsSearched);
         hits += Number(run.matchingSeeds);
         covered += end - cursor;
@@ -255,12 +292,105 @@ function runSearch(jaml, cb) {
 }
 
 // ---------------------------------------------------------------------------
+// 🎲 Magic: aesthetic search. runAestheticSearch is ONE long synchronous
+// enumeration (no batch/yield param), so on the main thread it would freeze the
+// UI with no way to Stop. We run it in a Web Worker instead: results stream back
+// via postMessage, and Stop just terminates the worker. Module workers don't
+// inherit the page importmap, but motely-wasm's internal imports are all
+// relative, so absolute CDN URLs for the two entry modules resolve everything.
+// ---------------------------------------------------------------------------
+const CDN_MOTELY = "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/index.mjs";
+const CDN_WASM = "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/wasm.g.mjs";
+
+// JamlAesthetic enum order (motely/filters/jaml): the magic the engine can chase.
+const AESTHETICS = [
+  { name: "Palindrome", value: 0 },
+  { name: "Echo", value: 1 },
+  { name: "Gross", value: 2 },
+  { name: "Funny", value: 3 },
+  { name: "Balatro", value: 4 },
+];
+
+// Built as a line array (no backticks) so the worker body can't terminate this
+// module's template literals.
+const WORKER_SRC = [
+  'import bootsharp from "' + CDN_MOTELY + '";',
+  'import { Program } from "' + CDN_WASM + '";',
+  'self.onmessage = async (e) => {',
+  '  const { jaml, aesthetic } = e.data;',
+  '  try {',
+  '    if (bootsharp.getStatus() === bootsharp.BootStatus.Standby) await bootsharp.boot();',
+  '    const config = Program.fromJaml(jaml);',
+  '    Program.onScoredResult.subscribe((r) => self.postMessage({ t: "hit", seed: r.seed, score: r.score }));',
+  '    Program.onProgress.subscribe((p) => self.postMessage({ t: "prog", scanned: Number(p.seedsSearched), hits: Number(p.matchingSeeds), sps: Math.round((p.seedsPerMillisecond || 0) * 1000) }));',
+  '    const run = Program.runAestheticSearch(config, aesthetic);',
+  '    self.postMessage({ t: "done", scanned: Number(run.totalSeedsSearched), hits: Number(run.matchingSeeds) });',
+  '  } catch (err) {',
+  '    self.postMessage({ t: "err", message: String((err && err.message) || err) });',
+  '  }',
+  '};',
+].join("\n");
+
+function runMagicSearch(jaml, aesthetic, cb) {
+  const url = URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" }));
+  const worker = new Worker(url, { type: "module" });
+
+  let best = new Map();
+  let lastBestEmit = 0;
+  const emitBest = (force) => {
+    const now = performance.now();
+    if (!force && now - lastBestEmit < 1500) return;
+    lastBestEmit = now;
+    const top = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, MAX_BEST).map(([s]) => s);
+    if (best.size > MAX_BEST) best = new Map(top.map((s) => [s, best.get(s)]));
+    cb.onBest(top);
+  };
+
+  let resolveDone;
+  const done = new Promise((res) => { resolveDone = res; });
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    try { worker.terminate(); } catch (_) {}
+    URL.revokeObjectURL(url);
+    emitBest(true);
+    resolveDone();
+  };
+
+  worker.onmessage = (e) => {
+    const d = e.data;
+    if (d.t === "hit") {
+      const prev = best.get(d.seed);
+      if (prev === undefined || d.score > prev) best.set(d.seed, d.score);
+      cb.onHit({ seed: d.seed, score: d.score });
+      emitBest(false);
+    } else if (d.t === "prog") {
+      cb.onProgress({ scanned: d.scanned, hits: d.hits, seedsPerSecond: d.sps });
+    } else if (d.t === "done") {
+      cb.onProgress({ scanned: d.scanned, hits: d.hits, seedsPerSecond: 0 });
+      finish();
+    } else if (d.t === "err") {
+      cb.onError(d.message);
+      finish();
+    }
+  };
+  worker.onerror = (ev) => { cb.onError(ev.message || "worker error"); finish(); };
+
+  // Strip saved seeds; magic runs the filter over the aesthetic enumeration.
+  worker.postMessage({ jaml: stripSeeds(jaml), aesthetic });
+
+  return { done, stop: finish };
+}
+
+// ---------------------------------------------------------------------------
 // presets
 // ---------------------------------------------------------------------------
 const PRESETS = [
   { label: "Blueprint", jaml: `name: Blueprint Start\ndeck: Red\nstake: White\nmust:\n  - joker: Blueprint\n    antes: [1, 2]\n` },
   { label: "Perkeo + copies", jaml: `name: Perkeo Start\ndeck: Red\nstake: White\nmust:\n  - joker: Perkeo\n    antes: [1]\nshould:\n  - joker: Blueprint\n    antes: [1, 2, 3, 4]\n    score: 30\n  - joker: Brainstorm\n    antes: [1, 2, 3, 4]\n    score: 30\n` },
   { label: "Negative tag", jaml: `name: Early Negative\ndeck: Red\nstake: White\nmust:\n  - tag: NegativeTag\n    antes: [1, 2]\n` },
+  { label: "Perkeo a1-3", jaml: `name: Perkeo Required\ndeck: Red\nstake: White\nmust:\n  - joker: Perkeo\n    antes: [1, 2, 3]\nshould:\n  - joker: Blueprint\n    antes: [1, 2, 3, 4]\n    score: 20\n  - joker: Brainstorm\n    antes: [1, 2, 3, 4]\n    score: 20\n` },
 ];
 const DEFAULT_JAML = PRESETS[0].jaml;
 const MAX_ROWS = 50;
@@ -274,6 +404,7 @@ function App() {
   const [jaml, setJaml] = useState(DEFAULT_JAML);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState(null);
+  const [magic, setMagic] = useState(null);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState({ scanned: 0, hits: 0, seedsPerSecond: 0 });
@@ -285,6 +416,7 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    loadJamlLang(); // best-effort; enables friendly JAML error messages
     bootEngine().then(
       () => { if (!cancelled) setBoot("ready"); },
       (e) => { if (!cancelled) { setBoot("error"); setBootError(e instanceof Error ? e.message : String(e)); } },
@@ -325,6 +457,41 @@ function App() {
     }
   }, [boot, running, jaml]);
 
+  const onMagic = useCallback(async () => {
+    if (boot !== "ready" || running) return;
+    const v = validateJaml(jaml);
+    if (v) { setError(v); return; }
+    const pick = AESTHETICS[Math.floor(Math.random() * AESTHETICS.length)];
+    setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 });
+    setMagic(pick.name); setRunning(true);
+
+    const found = [];
+    let lastPaint = 0;
+    const paint = (force) => {
+      const now = performance.now();
+      if (!force && now - lastPaint < 120) return;
+      lastPaint = now;
+      found.sort((a, b) => b.score - a.score);
+      setResults(found.slice(0, MAX_ROWS));
+    };
+
+    try {
+      const handle = runMagicSearch(jaml, pick.value, {
+        onHit: (hit) => { found.push(hit); paint(false); },
+        onProgress: setStats,
+        onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
+        onError: (m) => setError(m),
+      });
+      handleRef.current = handle;
+      await handle.done;
+      paint(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      handleRef.current = null; setMagic(null); setRunning(false);
+    }
+  }, [boot, running, jaml]);
+
   const onStop = useCallback(() => { handleRef.current?.stop(); }, []);
 
   const onLoadFile = useCallback((e) => {
@@ -355,7 +522,7 @@ function App() {
 
   const statusLabel = boot === "booting" ? "booting engine…"
     : boot === "error" ? "engine error"
-    : running ? (phase === "seedlist" ? "re-scoring saved seeds" : "sweeping")
+    : running ? (magic ? "✨ " + magic + " magic" : phase === "seedlist" ? "re-scoring saved seeds" : "sweeping")
     : "ready";
   const statusTone = boot === "error" ? "red" : running ? "orange" : boot === "ready" ? "green" : "grey";
 
@@ -393,7 +560,10 @@ function App() {
 
       ${running
         ? html`<button type="button" className="run run-stop" onClick=${onStop}>Stop</button>`
-        : html`<button type="button" className="run" disabled=${boot !== "ready"} onClick=${onSearch}>${boot === "ready" ? "Search Seeds" : "Booting…"}</button>`}
+        : html`<div className="runrow">
+            <button type="button" className="run" disabled=${boot !== "ready"} onClick=${onSearch}>${boot === "ready" ? "Search Seeds" : "Booting…"}</button>
+            <button type="button" className="run run-magic" disabled=${boot !== "ready"} onClick=${onMagic} title="Search a random aesthetic: Palindrome · Echo · Gross · Funny · Balatro">🎲 Magic</button>
+          </div>`}
 
       ${results.length > 0 ? html`
         <ul className="results">
