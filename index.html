@@ -238,7 +238,12 @@ function runSearch(jaml, cb) {
       while (covered < TOTAL_BATCHES && !stopped) {
         await new Promise((res) => setTimeout(res, 0)); // yield: paint + Stop land
         const end = Math.min(cursor + BATCHES_PER_RANGE, TOTAL_BATCHES);
-        const run = Program.runSequentialSearch(config, BigInt(cursor), BigInt(end), BATCH_CHARS);
+        // Pass progressReportIntervalMs explicitly (0n = no periodic progress
+        // events; we read totals off the returned search). Omitting this bigint
+        // optional marshals `undefined` where the AOT engine expects a long,
+        // which throws an opaque "C# exception from NativeAOT". autoScoreCutoff
+        // stays false. Matches seedfinder's browser-verified sweep call.
+        const run = Program.runSequentialSearch(config, BigInt(cursor), BigInt(end), BATCH_CHARS, 0n, false);
         scanned += Number(run.totalSeedsSearched);
         hits += Number(run.matchingSeeds);
         covered += end - cursor;
