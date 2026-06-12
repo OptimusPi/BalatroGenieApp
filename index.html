@@ -16,6 +16,7 @@
     "react-dom": "https://esm.sh/react-dom@19",
     "react-dom/client": "https://esm.sh/react-dom@19/client",
     "htm": "https://esm.sh/htm@3.1.1",
+    "jaml-lang/service": "https://esm.sh/jaml-lang@0.2.0/service",
     "motely-wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/index.mjs",
     "motely-wasm/motely/wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/wasm.g.mjs",
     "motely-wasm/motely/enums": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/enums.g.mjs",
@@ -177,7 +178,34 @@ function bootEngine() {
   return bootPromise;
 }
 
+// Optional pre-flight lint via jaml-lang (the authoritative language server).
+// The engine throws one opaque "C# exception from NativeAOT" for ANY bad JAML
+// (duplicate keys, typo'd enums, …); jaml-lang turns that into a real message
+// with a line number. Loaded lazily so a CDN hiccup can never break the app —
+// if it's unavailable we fall back to the engine's own (opaque) validation.
+let getDiagnostics = null;
+let jamlLangTried = false;
+async function loadJamlLang() {
+  if (jamlLangTried) return;
+  jamlLangTried = true;
+  try {
+    const m = await import("jaml-lang/service");
+    getDiagnostics = m.getDiagnostics;
+  } catch (_) { /* lint unavailable; engine-only validation */ }
+}
+
 function validateJaml(jaml) {
+  // Friendly, line-numbered structural lint first (full editor text so the
+  // line numbers match what the user sees).
+  if (getDiagnostics) {
+    try {
+      const errs = getDiagnostics(jaml).filter((d) => d.severity === 1);
+      if (errs.length > 0) {
+        return errs.slice(0, 5).map((d) => `line ${d.range.start.line + 1}: ${d.message}`).join("\n");
+      }
+    } catch (_) { /* fall through to the engine */ }
+  }
+  // Authoritative engine check (catches anything the fast lint missed).
   try { Program.fromJaml(stripSeeds(jaml)); return null; }
   catch (e) { return e instanceof Error ? e.message : String(e); }
 }
@@ -388,6 +416,7 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
+    loadJamlLang(); // best-effort; enables friendly JAML error messages
     bootEngine().then(
       () => { if (!cancelled) setBoot("ready"); },
       (e) => { if (!cancelled) { setBoot("error"); setBootError(e instanceof Error ? e.message : String(e)); } },
