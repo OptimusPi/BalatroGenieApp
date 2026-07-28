@@ -4,7 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Balatro Genie — Seed Searcher</title>
-<meta name="description" content="Minimalist client-side Balatro seed searcher. Write a JAML filter, search 2.25 trillion seeds in your browser. No build, no backend — the engine streams from a CDN." />
+<meta name="description" content="Lo-fi client-side Balatro seed searcher. Write a JAML filter, search 2.25 trillion seeds in your browser at blazing speed. No build, no backend — by seedfinder.app." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
 <!-- No bundle: React/htm from esm.sh, the motely-wasm engine from jsDelivr.
      The multi-MB embedded WASM ships from the CDN, not from this origin, so
@@ -28,61 +31,103 @@
 
 <style>
 :root {
-  --bg: #0b1413; --panel: #11191a; --border: #21302f;
-  --text: #d8ecdf; --muted: #6f8a82;
-  --gold: #f6c945; --red: #fe5148; --green: #56a786;
-  --orange: #ff9800; --blue: #4aa3df; --purple: #9b6dc4; --grey: #3a4a48;
-  --mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --bg: #161022; --bg2: #1c1430; --panel: #211a35; --border: #40325a;
+  --text: #f1e6ff; --muted: #a293c2;
+  --gold: #ffd166; --amber: #ffb454; --red: #ff6b6b; --green: #6be3b0;
+  --orange: #ff8b5e; --teal: #6be3d6; --pink: #f2a6c1; --purple: #b98af0; --grey: #4a3d66;
+  --mono: "Space Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+  --led: "VT323", var(--mono);
+  --shadow: #0c0815;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+html, body { margin: 0; min-height: 100%;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 139, 94, 0.16), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(185, 138, 240, 0.14), transparent 55%),
+    var(--bg);
+  color: var(--text); font-family: "Space Mono", ui-monospace, "SF Mono", "Menlo", monospace;
+  position: relative; }
+/* film-grain overlay, sits above everything, ignores clicks */
+.grain { position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: 0.05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"); }
 .app { max-width: 620px; margin: 0 auto; padding: 28px 18px 48px; display: grid; gap: 14px; }
 .head { text-align: center; }
-.title { margin: 0; font-size: 30px; }
+.title { margin: 0; font-family: var(--led); font-size: 42px; letter-spacing: 0.02em;
+  text-shadow: 0 0 14px rgba(255, 209, 102, 0.35); }
 .genie { filter: drop-shadow(0 0 8px rgba(155, 109, 196, 0.6)); }
-.tagline { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
-.statusbar, .toolbar, .presets { display: grid; grid-auto-flow: column; justify-content: center; gap: 8px; }
+.tagline { margin: 4px 0 0; font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+.sitebanner { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; width: fit-content;
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.16), rgba(185, 138, 240, 0.16));
+  border: 2px dashed var(--gold); color: var(--gold); text-decoration: none;
+  border-radius: 999px; padding: 6px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; transition: transform 0.15s ease, background 0.15s ease; }
+.sitebanner:hover { transform: translateY(-1px) scale(1.03); background: rgba(255, 209, 102, 0.22); }
+
+/* --- speed hero: the big glowing readout --- */
+.speedhero { position: relative; overflow: hidden; text-align: center; border-radius: 16px;
+  background: linear-gradient(180deg, #0e0a18, #150f22);
+  border: 2px solid var(--border); box-shadow: 0 0 0 1px rgba(0,0,0,0.4) inset, 4px 4px 0 var(--shadow); padding: 14px 10px 10px; }
+.speedhero::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 2px, transparent 3px); }
+.speedhero-label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); }
+.speedhero-num { font-family: var(--led); font-size: 64px; line-height: 1.05; color: var(--amber);
+  text-shadow: 0 0 6px var(--amber), 0 0 24px rgba(255, 180, 84, 0.55); transition: color 0.2s ease; }
+.speedhero-num.idle { color: #6b5f88; text-shadow: none; }
+.speedhero-peak { font-size: 12px; color: var(--muted); }
+.speedhero-peak b { color: var(--pink); font-weight: 700; }
+
+.statusbar, .toolbar, .presets { display: grid; grid-auto-flow: column; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 4px 9px; border-radius: 999px; color: #0b1413; white-space: nowrap; }
+  padding: 4px 9px; border-radius: 999px; color: #14101f; white-space: nowrap; border: 1px solid rgba(0,0,0,0.25); }
 .badge-grey { background: var(--grey); color: var(--text); }
 .badge-green { background: var(--green); }
 .badge-orange { background: var(--orange); }
 .badge-red { background: var(--red); }
-.badge-blue { background: var(--blue); }
-.badge-purple { background: var(--purple); }
+.badge-blue { background: var(--teal); }
+.badge-purple { background: var(--purple); color: #fff; }
 .badge-gold { background: var(--gold); }
-.chip { background: var(--panel); color: var(--text); border: 1px solid var(--border);
-  border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+.spin { display: inline-block; animation: spin 2.4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.chip { background: var(--panel); color: var(--text); border: 2px solid var(--border);
+  border-radius: 999px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-family: var(--mono);
+  box-shadow: 3px 3px 0 var(--shadow); transition: transform 0.1s ease, box-shadow 0.1s ease; }
 .chip:hover:not(:disabled) { border-color: var(--gold); }
+.chip:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
 .chip:disabled { opacity: 0.5; cursor: not-allowed; }
 .editor { width: 100%; min-height: 200px; resize: vertical; background: var(--panel); color: var(--text);
   border: 2px solid var(--border); border-radius: 10px; padding: 12px;
   font-family: var(--mono); font-size: 13px; line-height: 1.55; }
 .editor:focus { outline: none; border-color: var(--green); }
 .editor:disabled { opacity: 0.7; }
-.error { margin: 0; background: rgba(254, 81, 72, 0.12); border: 1px solid var(--red); color: #ffb3ae;
+.error { margin: 0; background: rgba(255, 107, 107, 0.12); border: 1px solid var(--red); color: #ffb3ae;
   border-radius: 10px; padding: 10px 12px; font-size: 13px; font-family: var(--mono); white-space: pre-wrap; }
-.run { border: none; border-radius: 10px; padding: 14px; font-size: 16px; font-weight: 800;
-  letter-spacing: 0.02em; cursor: pointer; background: var(--orange); color: #0b1413; }
-.run:disabled { background: var(--grey); color: var(--muted); cursor: not-allowed; }
-.run-stop { background: var(--red); color: #fff; }
+.run { border: 2px solid var(--shadow); border-radius: 10px; padding: 14px; font-size: 16px; font-weight: 800;
+  letter-spacing: 0.02em; cursor: pointer; background: var(--orange); color: #201230; font-family: var(--mono);
+  box-shadow: 4px 4px 0 var(--shadow); transition: transform 0.1s ease, box-shadow 0.1s ease; }
+.run:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--shadow); }
+.run:disabled { background: var(--grey); color: var(--muted); cursor: not-allowed; box-shadow: none; }
+.run-stop { background: var(--red); color: #2a0e0e; }
 .runrow { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
 .run-magic { background: var(--purple); color: #fff; }
 .results { list-style: none; margin: 0; padding: 0; display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
 .seed { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px;
-  background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; cursor: pointer; }
+  background: var(--panel); border: 2px solid var(--border); border-radius: 9px; padding: 9px 11px; cursor: pointer;
+  box-shadow: 2px 2px 0 var(--shadow); transition: transform 0.1s ease, box-shadow 0.1s ease; }
 .seed:hover { border-color: var(--gold); }
+.seed:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--shadow); }
 .seed-id { font-family: var(--mono); font-size: 14px; letter-spacing: 0.06em; }
 .seed-score { font-size: 12px; font-weight: 700; color: var(--gold); }
 .foot { text-align: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
-.foot a { color: var(--green); text-decoration: none; }
+.foot a { color: var(--teal); text-decoration: none; }
 .foot a:hover { text-decoration: underline; }
+.foot .foot-main { color: var(--gold); font-weight: 700; }
 </style>
 </head>
 <body>
 <div id="root"></div>
+<div class="grain" aria-hidden="true"></div>
 
 <script type="module">
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
@@ -410,6 +455,7 @@ function App() {
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
   const [stats, setStats] = useState({ scanned: 0, hits: 0, seedsPerSecond: 0 });
+  const [peakSpeed, setPeakSpeed] = useState(0);
   const [bestCount, setBestCount] = useState(0);
   const [copied, setCopied] = useState(null);
 
@@ -430,7 +476,7 @@ function App() {
     if (boot !== "ready" || running) return;
     const v = validateJaml(jaml);
     if (v) { setError(v); return; }
-    setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 }); setRunning(true);
+    setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 }); setPeakSpeed(0); setRunning(true);
 
     const found = [];
     let lastPaint = 0;
@@ -445,7 +491,7 @@ function App() {
     try {
       const handle = runSearch(jaml, {
         onHit: (hit) => { found.push(hit); paint(false); },
-        onProgress: setStats,
+        onProgress: (s) => { setStats(s); setPeakSpeed((p) => Math.max(p, s.seedsPerSecond)); },
         onPhase: setPhase,
         onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
       });
@@ -464,7 +510,7 @@ function App() {
     const v = validateJaml(jaml);
     if (v) { setError(v); return; }
     const pick = AESTHETICS[Math.floor(Math.random() * AESTHETICS.length)];
-    setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 });
+    setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 }); setPeakSpeed(0);
     setMagic(pick.name); setRunning(true);
 
     const found = [];
@@ -480,7 +526,7 @@ function App() {
     try {
       const handle = runMagicSearch(jaml, pick.value, {
         onHit: (hit) => { found.push(hit); paint(false); },
-        onProgress: setStats,
+        onProgress: (s) => { setStats(s); setPeakSpeed((p) => Math.max(p, s.seedsPerSecond)); },
         onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
         onError: (m) => setError(m),
       });
@@ -532,12 +578,18 @@ function App() {
     <main className="app">
       <header className="head">
         <h1 className="title"><span className="genie">🧞</span> Balatro Genie</h1>
-        <p className="tagline">Client-side seed search · 2.25 trillion seeds, all in your browser</p>
+        <p className="tagline">lo-fi seed search · 2.25 trillion seeds, all in your browser 🎧</p>
+        <a className="sitebanner" href="https://seedfinder.app" target="_blank" rel="noreferrer">🔮 seedfinder.app</a>
       </header>
 
+      <div className="speedhero">
+        <div className="speedhero-label">${running ? "⚡ seeds / sec" : "⚡ ready to grind"}</div>
+        <div className=${"speedhero-num" + (running ? "" : " idle")}>${stats.seedsPerSecond.toLocaleString()}</div>
+        <div className="speedhero-peak">peak <b>${peakSpeed.toLocaleString()}</b>/s this run</div>
+      </div>
+
       <div className="statusbar">
-        <span className=${"badge badge-" + statusTone}>${statusLabel}</span>
-        <span className="badge badge-blue">${stats.seedsPerSecond.toLocaleString()}/s</span>
+        <span className=${"badge badge-" + statusTone}>${running ? html`<span className="spin">🌀</span> ` : ""}${statusLabel}</span>
         <span className="badge badge-purple">${stats.hits.toLocaleString()} hits</span>
         <span className="badge badge-gold">★ ${bestCount.toLocaleString()}/${MAX_BEST}</span>
       </div>
@@ -577,8 +629,9 @@ function App() {
         </ul>` : null}
 
       <footer className="foot">
-        Powered by <a href="https://www.npmjs.com/package/motely-wasm" target="_blank" rel="noreferrer">motely-wasm</a>
-        · JAML via <a href="https://mcp.seedfinder.app/mcp" target="_blank" rel="noreferrer">seedfinder.app</a>
+        <a className="foot-main" href="https://seedfinder.app" target="_blank" rel="noreferrer">🔮 seedfinder.app</a>
+        · powered by <a href="https://www.npmjs.com/package/motely-wasm" target="_blank" rel="noreferrer">motely-wasm</a>
+        · <a href="https://mcp.seedfinder.app/mcp" target="_blank" rel="noreferrer">JAML docs</a>
       </footer>
     </main>`;
 }
