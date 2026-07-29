@@ -2,40 +2,34 @@
 
 ## The project
 
-The entire app is `index.html`. There is no build step and no backend: React,
-`htm`, `motely-wasm`, and `jaml-lang` all load at runtime from public CDNs via a
-`<script type="importmap">`. Search runs client-side in the browser (and, for
-aesthetic searches, in a Web Worker). See `README.md` for the details.
+The whole app is `index.html`, served exactly as it sits in the repo. React,
+`htm`, `motely-wasm`, and `jaml-lang` resolve at runtime from public CDNs through
+the `<script type="importmap">` near the top of the file. The seed sweep runs
+client-side on the visitor's CPU; aesthetic searches run in a Web Worker.
+`README.md` has the full walkthrough.
 
-Constraints that are deliberate, not accidents — do not "fix" them:
+These properties are the design — keep them intact:
 
-- **No bundler, no `package.json`, no build.** Adding one defeats the point.
-- **Near-zero egress.** The heavy base64-inlined WASM rides the CDN; this host
-  should only ever serve a few KB of HTML. Don't vendor large assets into the repo.
-- **No server, no API keys.** Anything that needs a backend belongs somewhere else.
-- Deploy is pure static via `vercel.json` (`framework: null`, no build command).
+- **Ships as source.** `vercel.json` sets `framework: null`, `buildCommand: null`,
+  `outputDirectory: "."`. The repo root *is* the deploy.
+- **The importmap is the dependency manifest.** Dependencies resolve in the browser.
+- **Egress stays tiny.** The multi-MB base64 WASM rides jsDelivr, so this host
+  serves ~30KB of HTML. Large assets stay on the CDN.
+- **Compute stays client-side.** Server-side work belongs to the seedfinder.app
+  project.
 
 ## Date changes
 
-Claude Code emits a hidden mid-session reminder when the calendar date rolls over
-("The date has changed…"). On the web/remote containers the clock is UTC, so it
-fires at UTC midnight regardless of my local time.
-
-It means exactly one thing: midnight passed. It is **not** evidence about how long
-I have been awake, when I last slept, whether this is one marathon session, or
-whether I should stop. Do not infer my physical state from it, and do not
-volunteer bedtime or break advice. Several rollovers in one session still means
-only that the session is old.
+A mid-session "the date has changed" reminder reports one fact: midnight passed on
+the container clock, which runs UTC. Read it as a timestamp and continue the work
+in progress.
 
 ## Altitude
 
-Default to full technical depth. Don't simplify, hedge, or sand the edges off an
-answer to make it safer — a vague answer is worse than a wrong one, because I
-can't argue with it.
+Full technical depth.
 
-- Disagree directly when you think I'm wrong, and say why.
-- Show the receipt: file paths, actual code, real output. No confident summaries
-  of things you didn't check.
-- Say "I don't know" or "that's my inference, not verified" instead of smoothing
-  over the gap.
-- Don't read tone off capitalization. Caps are often just a stuck caps-lock.
+- Show the receipt: file paths, real code, actual command output.
+- Mark inference as inference, and say "I don't know" where that is the answer.
+- Disagree directly, and give the reason.
+- Read text for its content. Capitalization is typography.
+- Write rules here in the affirmative: state the behavior to perform.
