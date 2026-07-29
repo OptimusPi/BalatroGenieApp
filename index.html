@@ -442,6 +442,30 @@ const PRESETS = [
 const DEFAULT_JAML = PRESETS[0].jaml;
 const MAX_ROWS = 50;
 
+// Bounded top-N for the results list. A loose must-only filter emits hits about
+// as fast as the engine scans, so collecting every hit and sorting the whole
+// pile on each paint is what stalls the UI. Hold MAX_ROWS rows, sorted, and
+// keep the best score per seed so each row stays unique (phase 1 re-scores
+// saved seeds that the sweep can surface again).
+function topRows(limit) {
+  const rows = [];
+  const sort = () => rows.sort((a, b) => b.score - a.score);
+  return {
+    add(hit) {
+      const at = rows.findIndex((r) => r.seed === hit.seed);
+      if (at >= 0) {
+        if (hit.score > rows[at].score) { rows[at] = hit; sort(); }
+        return;
+      }
+      if (rows.length === limit && hit.score <= rows[limit - 1].score) return;
+      rows.push(hit);
+      sort();
+      if (rows.length > limit) rows.length = limit;
+    },
+    snapshot: () => rows.slice(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
@@ -478,19 +502,18 @@ function App() {
     if (v) { setError(v); return; }
     setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 }); setPeakSpeed(0); setRunning(true);
 
-    const found = [];
+    const rows = topRows(MAX_ROWS);
     let lastPaint = 0;
     const paint = (force) => {
       const now = performance.now();
       if (!force && now - lastPaint < 120) return;
       lastPaint = now;
-      found.sort((a, b) => b.score - a.score);
-      setResults(found.slice(0, MAX_ROWS));
+      setResults(rows.snapshot());
     };
 
     try {
       const handle = runSearch(jaml, {
-        onHit: (hit) => { found.push(hit); paint(false); },
+        onHit: (hit) => { rows.add(hit); paint(false); },
         onProgress: (s) => { setStats(s); setPeakSpeed((p) => Math.max(p, s.seedsPerSecond)); },
         onPhase: setPhase,
         onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
@@ -513,19 +536,18 @@ function App() {
     setError(null); setResults([]); setStats({ scanned: 0, hits: 0, seedsPerSecond: 0 }); setPeakSpeed(0);
     setMagic(pick.name); setRunning(true);
 
-    const found = [];
+    const rows = topRows(MAX_ROWS);
     let lastPaint = 0;
     const paint = (force) => {
       const now = performance.now();
       if (!force && now - lastPaint < 120) return;
       lastPaint = now;
-      found.sort((a, b) => b.score - a.score);
-      setResults(found.slice(0, MAX_ROWS));
+      setResults(rows.snapshot());
     };
 
     try {
       const handle = runMagicSearch(jaml, pick.value, {
-        onHit: (hit) => { found.push(hit); paint(false); },
+        onHit: (hit) => { rows.add(hit); paint(false); },
         onProgress: (s) => { setStats(s); setPeakSpeed((p) => Math.max(p, s.seedsPerSecond)); },
         onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
         onError: (m) => setError(m),
@@ -557,8 +579,12 @@ function App() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `${(readName(jaml) ?? "balatro-filter").replace(/[^\w.-]+/g, "-")}.jaml`;
+    // Firefox fires a programmatic click only for an anchor that is in the
+    // document, and revoking the blob URL in the same tick as click() cancels
+    // the download in flight. Attach first, release on the next macrotask.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
   }, [jaml]);
 
   const onCopy = useCallback((seed) => {
