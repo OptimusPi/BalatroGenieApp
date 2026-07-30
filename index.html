@@ -7,7 +7,9 @@
 <meta name="description" content="Lo-fi client-side Balatro seed searcher. Write a JAML filter, search 2.25 trillion seeds in your browser at blazing speed. No build, no backend — by seedfinder.app." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<!-- jaml-ui's Balatro tokens + the m6x11 pixel font, inlined in the stylesheet. -->
+<link href="https://cdn.jsdelivr.net/npm/jaml-ui@4.3.1/dist/ui/jimbo.css" rel="stylesheet" />
 
 <!-- No bundle: React/htm from esm.sh, the motely-wasm engine from jsDelivr.
      The multi-MB embedded WASM ships from the CDN, not from this origin, so
@@ -28,49 +30,45 @@
 </script>
 
 <style>
+/* Palette comes from jaml-ui's jimbo.css so Genie and Seed Lab agree on what
+   Balatro looks like. The --j-* names are jimbo's; the short aliases below keep
+   the rest of this stylesheet readable. */
 :root {
-  --bg: #161022; --bg2: #1c1430; --panel: #211a35; --border: #40325a;
-  --text: #f1e6ff; --muted: #a293c2;
-  --gold: #ffd166; --amber: #ffb454; --red: #ff6b6b; --green: #6be3b0;
-  --orange: #ff8b5e; --teal: #6be3d6; --pink: #f2a6c1; --purple: #b98af0; --grey: #4a3d66;
+  --bg: #16211f; --panel: var(--j-darkest, #1e2b2d); --border: var(--j-panel-edge, #1e2e32);
+  --text: #e8eef0; --muted: var(--j-grey, #a8bcbf);
+  --gold: var(--j-gold, #e4b643); --amber: var(--j-orange, #ff9800);
+  --red: var(--j-red, #fe5148); --green: var(--j-green, #429f79);
+  --orange: var(--j-orange, #ff9800); --teal: var(--j-planet-btn, #00a7ca);
+  --pink: var(--j-purple, #9e74ce); --purple: var(--j-purple, #9e74ce);
+  --grey: var(--j-dark-grey, #3a5055); --blue: var(--j-blue, #0093ff);
   --mono: "Space Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
-  --led: "VT323", var(--mono);
-  --shadow: #0c0815;
+  --led: var(--j-font, "m6x11plus", "m6x11"), var(--mono);
+  --shadow: #0d1517;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%;
-  background:
-    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 139, 94, 0.16), transparent 60%),
-    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(185, 138, 240, 0.14), transparent 55%),
-    var(--bg);
+html, body { margin: 0; min-height: 100%; background: var(--bg);
   color: var(--text); font-family: "Space Mono", ui-monospace, "SF Mono", "Menlo", monospace;
   position: relative; }
-/* film-grain overlay, sits above everything, ignores clicks */
-.grain { position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: 0.05; mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"); }
 .app { max-width: 620px; margin: 0 auto; padding: 28px 18px 48px; display: grid; gap: 14px; }
 .head { text-align: center; }
-.title { margin: 0; font-family: var(--led); font-size: 42px; letter-spacing: 0.02em;
-  text-shadow: 0 0 14px rgba(255, 209, 102, 0.35); }
-.genie { filter: drop-shadow(0 0 8px rgba(155, 109, 196, 0.6)); }
+.title { margin: 0; font-family: var(--led); font-size: 44px; letter-spacing: 0.02em; color: var(--gold); }
+.genie { filter: none; }
 .tagline { margin: 4px 0 0; font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
 .sitebanner { display: inline-flex; align-items: center; gap: 6px; margin: 10px auto 0; width: fit-content;
-  background: linear-gradient(135deg, rgba(255, 209, 102, 0.16), rgba(185, 138, 240, 0.16));
-  border: 2px dashed var(--gold); color: var(--gold); text-decoration: none;
-  border-radius: 999px; padding: 6px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; transition: transform 0.15s ease, background 0.15s ease; }
-.sitebanner:hover { transform: translateY(-1px) scale(1.03); background: rgba(255, 209, 102, 0.22); }
+  background: var(--panel); border: 2px solid var(--gold); color: var(--gold); text-decoration: none;
+  border-radius: var(--j-radius-pill, 10px); padding: 6px 16px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.04em; }
+.sitebanner:hover { background: var(--grey); }
 
 /* --- speed hero: the big glowing readout --- */
-.speedhero { position: relative; overflow: hidden; text-align: center; border-radius: 16px;
-  background: linear-gradient(180deg, #0e0a18, #150f22);
-  border: 2px solid var(--border); box-shadow: 0 0 0 1px rgba(0,0,0,0.4) inset, 4px 4px 0 var(--shadow); padding: 14px 10px 10px; }
-.speedhero::after { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.35) 0px, rgba(0,0,0,0.35) 1px, transparent 2px, transparent 3px); }
-.speedhero-label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); }
-.speedhero-num { font-family: var(--led); font-size: 64px; line-height: 1.05; color: var(--amber);
-  text-shadow: 0 0 6px var(--amber), 0 0 24px rgba(255, 180, 84, 0.55); transition: color 0.2s ease; }
-.speedhero-num.idle { color: #6b5f88; text-shadow: none; }
+.speedhero { position: relative; overflow: hidden; text-align: center;
+  border-radius: var(--j-radius-lg, 8px); background: var(--panel);
+  border: var(--j-panel-border-width, 3px) solid var(--border);
+  box-shadow: var(--j-card-shadow, 0 2px 3px rgba(0,0,0,0.4)); padding: 14px 10px 10px; }
+.speedhero-label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.speedhero-num { font-family: var(--led); font-size: 64px; line-height: 1.05; color: var(--gold);
+  transition: color 0.2s ease; }
+.speedhero-num.idle { color: var(--grey); }
 .speedhero-peak { font-size: 12px; color: var(--muted); }
 .speedhero-peak b { color: var(--pink); font-weight: 700; }
 
@@ -115,6 +113,9 @@ html, body { margin: 0; min-height: 100%;
   box-shadow: 2px 2px 0 var(--shadow); transition: transform 0.1s ease, box-shadow 0.1s ease; }
 .seed:hover { border-color: var(--gold); }
 .seed:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--shadow); }
+/* When jaml-ui has loaded, the slot carries no chrome of its own — SeedCard
+   brings its own Balatro styling from jimbo.css. */
+.seed-slot { list-style: none; display: block; }
 .seed-id { font-family: var(--mono); font-size: 14px; letter-spacing: 0.06em; }
 .seed-score { font-size: 12px; font-weight: 700; color: var(--gold); }
 .foot { text-align: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
@@ -125,7 +126,6 @@ html, body { margin: 0; min-height: 100%;
 </head>
 <body>
 <div id="root"></div>
-<div class="grain" aria-hidden="true"></div>
 
 <script type="module">
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
@@ -231,6 +231,14 @@ async function loadJamlLang() {
     const m = await import("jaml-lang");
     getDiagnostics = m.getDiagnostics;
   } catch (_) { /* line numbers unavailable; the engine still reports the error */ }
+}
+
+// jaml-ui carries its sprite sheets inline, so it is a couple of MB. Load it
+// after first paint and render the text rows until it lands — the results list
+// works either way.
+async function loadSeedCard() {
+  const m = await import("jaml-ui");
+  return m.SeedCard;
 }
 
 function validateJaml(jaml) {
@@ -458,6 +466,7 @@ function App() {
   const [peakSpeed, setPeakSpeed] = useState(0);
   const [bestCount, setBestCount] = useState(0);
   const [copied, setCopied] = useState(null);
+  const [SeedCard, setSeedCard] = useState(null);
 
   const handleRef = useRef(null);
   const fileRef = useRef(null);
@@ -465,6 +474,11 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     loadJamlLang(); // best-effort; enables friendly JAML error messages
+    // Stored via an updater fn: setState treats a bare function as a reducer.
+    loadSeedCard().then(
+      (C) => { if (!cancelled) setSeedCard(() => C); },
+      () => { /* sprites unavailable; the text rows stand in */ },
+    );
     bootEngine().then(
       () => { if (!cancelled) setBoot("ready"); },
       (e) => { if (!cancelled) { setBoot("error"); setBootError(e instanceof Error ? e.message : String(e)); } },
@@ -623,10 +637,14 @@ function App() {
 
       ${results.length > 0 ? html`
         <ul className="results">
-          ${results.map((r) => html`
-            <li key=${r.seed} className="seed" title="Click to copy" onClick=${() => onCopy(r.seed)}>
-              <span className="seed-id">${r.seed}</span>
-              <span className="seed-score">${copied === r.seed ? "copied!" : r.score}</span>
+          ${results.map((r, i) => html`
+            <li key=${r.seed} className=${SeedCard ? "seed-slot" : "seed"}
+                title=${SeedCard ? null : "Click to copy"}
+                onClick=${SeedCard ? null : () => onCopy(r.seed)}>
+              ${SeedCard
+                ? html`<${SeedCard} seed=${r.seed} score=${r.score} rank=${i + 1} onClick=${true} />`
+                : html`<span className="seed-id">${r.seed}</span>
+                       <span className="seed-score">${copied === r.seed ? "copied!" : r.score}</span>`}
             </li>`)}
         </ul>` : null}
 
