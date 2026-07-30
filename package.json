@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "jaml-lang": "^3.14.2",
+    "jaml-ui": "^4.3.1",
+    "motely-wasm": "^25.0.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

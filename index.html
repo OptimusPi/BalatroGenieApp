@@ -18,13 +18,11 @@
     "react": "https://esm.sh/react@19",
     "react-dom": "https://esm.sh/react-dom@19",
     "react-dom/client": "https://esm.sh/react-dom@19/client",
+    "react/jsx-runtime": "https://esm.sh/react@19/jsx-runtime",
     "htm": "https://esm.sh/htm@3.1.1",
-    "jaml-lang/service": "https://esm.sh/jaml-lang@0.2.0/service",
-    "motely-wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/index.mjs",
-    "motely-wasm/motely/wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/wasm.g.mjs",
-    "motely-wasm/motely/enums": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/enums.g.mjs",
-    "motely-wasm/motely/filters/jaml": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/filters/jaml.g.mjs",
-    "motely-wasm/bootsharp/file-system": "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/bootsharp/file-system.g.mjs"
+    "jaml-lang": "https://esm.sh/jaml-lang@3.14.2",
+    "jaml-ui": "https://esm.sh/*jaml-ui@4.3.1",
+    "motely-wasm": "https://cdn.jsdelivr.net/npm/motely-wasm@25.0.3/dist/index.mjs"
   }
 }
 </script>
@@ -133,8 +131,7 @@ html, body { margin: 0; min-height: 100%;
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import htm from "htm";
-import bootsharp from "motely-wasm";
-import { Program } from "motely-wasm/motely/wasm";
+import bootsharp, { MotelyJaml, MotelySearch, MotelyUtilities } from "motely-wasm";
 
 // htm binds to a hyperscript fn — React.createElement — so we get JSX-like
 // markup with no build step.
@@ -223,25 +220,22 @@ function bootEngine() {
   return bootPromise;
 }
 
-// Optional pre-flight lint via jaml-lang (the authoritative language server).
-// The engine throws one opaque "C# exception from NativeAOT" for ANY bad JAML
-// (duplicate keys, typo'd enums, …); jaml-lang turns that into a real message
-// with a line number. Loaded lazily so a CDN hiccup can never break the app —
-// if it's unavailable we fall back to the engine's own (opaque) validation.
+// jaml-lang supplies line numbers; MotelyJaml.validate is the authority. Loaded
+// lazily so a CDN hiccup costs the line numbers and nothing else.
 let getDiagnostics = null;
 let jamlLangTried = false;
 async function loadJamlLang() {
   if (jamlLangTried) return;
   jamlLangTried = true;
   try {
-    const m = await import("jaml-lang/service");
+    const m = await import("jaml-lang");
     getDiagnostics = m.getDiagnostics;
-  } catch (_) { /* lint unavailable; engine-only validation */ }
+  } catch (_) { /* line numbers unavailable; the engine still reports the error */ }
 }
 
 function validateJaml(jaml) {
-  // Friendly, line-numbered structural lint first (full editor text so the
-  // line numbers match what the user sees).
+  // Line-numbered structural lint first, over the full editor text so the
+  // numbers match what's on screen.
   if (getDiagnostics) {
     try {
       const errs = getDiagnostics(jaml).filter((d) => d.severity === 1);
@@ -250,8 +244,9 @@ function validateJaml(jaml) {
       }
     } catch (_) { /* fall through to the engine */ }
   }
-  // Authoritative engine check (catches anything the fast lint missed).
-  try { Program.fromJaml(stripSeeds(jaml)); return null; }
+  // Engine check. validate() returns the message (or null), so the opaque
+  // "C# exception from NativeAOT" this used to catch is gone.
+  try { return MotelyJaml.validate(stripSeeds(jaml)); }
   catch (e) { return e instanceof Error ? e.message : String(e); }
 }
 
@@ -259,16 +254,12 @@ const MAX_BEST = 3141; // π.
 // Balatro seeds: 8 chars over a 35-char alphabet -> 35^8 ~ 2.25 trillion.
 const BATCH_CHARS = 3;
 const TOTAL_BATCHES = Math.pow(35, 8 - BATCH_CHARS); // 35^5 = 52,521,875
+const SEEDS_PER_BATCH = Math.pow(35, BATCH_CHARS);   // 35^3 = 42,875
 const BATCHES_PER_RANGE = 4;
 
 function runSearch(jaml, cb) {
   const presetSeeds = parseSeeds(jaml);
-  const config = Program.fromJaml(stripSeeds(jaml));
-  // Auto-cutoff raises the minimum score to suppress weak hits — great for a
-  // scored filter, but on a must-only filter every match scores 0, so it would
-  // suppress ALL results (counters climb, results list stays empty). Only enable
-  // it when there's something to score.
-  const useCutoff = config.should.length > 0;
+  const base = MotelyJaml.fromJaml(stripSeeds(jaml));
   let stopped = false;
 
   let best = new Map();
@@ -290,47 +281,56 @@ function runSearch(jaml, cb) {
     cb.onHit({ seed: r.seed, score: r.score });
     emitBest(false);
   };
-  Program.onScoredResult.subscribe(onScored);
+  MotelySearch.onScoredResult.subscribe(onScored);
+
+  // v25's search calls resolve to a result array rather than carrying the
+  // counters, so scanned/hits come from onProgress. Batch arithmetic is the
+  // floor for scanned, so the readout still climbs between progress ticks.
+  let scanned = 0, hits = 0, enginePerSecond = 0;
+  const onProgress = (p) => {
+    scanned = Math.max(scanned, Number(p.seedsSearched));
+    hits = Math.max(hits, Number(p.matchingSeeds));
+    enginePerSecond = Math.round((p.seedsPerMillisecond || 0) * 1000);
+  };
+  MotelySearch.onProgress.subscribe(onProgress);
 
   const done = (async () => {
-    let scanned = 0, hits = 0;
     const started = performance.now();
     const report = () => {
       const sec = (performance.now() - started) / 1000;
-      cb.onProgress({ scanned, hits, seedsPerSecond: sec > 0 ? Math.round(scanned / sec) : 0 });
+      const derived = sec > 0 ? Math.round(scanned / sec) : 0;
+      cb.onProgress({ scanned, hits, seedsPerSecond: enginePerSecond || derived });
     };
     try {
       // Phase 1 — re-score the seeds already saved in the filter.
       if (presetSeeds.length > 0 && !stopped) {
         cb.onPhase("seedlist");
-        config.seeds = presetSeeds;
         await new Promise((res) => setTimeout(res, 0));
-        const run = Program.runSeedListSearch(config);
-        scanned += Number(run.totalSeedsSearched);
-        hits += Number(run.matchingSeeds);
+        const found = await MotelySearch.searchList({ ...base, seeds: presetSeeds });
+        scanned = Math.max(scanned, presetSeeds.length);
+        hits = Math.max(hits, found.length);
         report(); emitBest(true);
       }
       // Phase 2 — continue sweeping the full space.
-      config.seeds = [];
+      const config = { ...base, seeds: [] };
       cb.onPhase("sweep");
       let cursor = Math.floor(Math.random() * TOTAL_BATCHES);
       let covered = 0;
       while (covered < TOTAL_BATCHES && !stopped) {
         await new Promise((res) => setTimeout(res, 0)); // yield: paint + Stop land
         const end = Math.min(cursor + BATCHES_PER_RANGE, TOTAL_BATCHES);
-        // progressReportIntervalMs is passed as a bigint (100n) — it's the tick
-        // autoScoreCutoff needs to engage, and passing it also keeps the call
-        // off the NativeAOT exception path. useCutoff is on only for scored
-        // filters (see above), so a must-only filter shows all its matches.
-        const run = Program.runSequentialSearch(config, BigInt(cursor), BigInt(end), BATCH_CHARS, 100n, useCutoff);
-        scanned += Number(run.totalSeedsSearched);
-        hits += Number(run.matchingSeeds);
+        // No cutoff flag and no progress-interval tick in v25 — the call that
+        // used to suppress every hit on a must-only filter cannot be
+        // mis-parameterised any more.
+        await MotelySearch.searchSequential(config, BigInt(cursor), BigInt(end), BATCH_CHARS);
         covered += end - cursor;
+        scanned = Math.max(scanned, covered * SEEDS_PER_BATCH);
         cursor = end >= TOTAL_BATCHES ? 0 : end;
         report();
       }
     } finally {
-      Program.onScoredResult.unsubscribe(onScored);
+      MotelySearch.onScoredResult.unsubscribe(onScored);
+      MotelySearch.onProgress.unsubscribe(onProgress);
       report(); emitBest(true);
     }
   })();
@@ -339,48 +339,25 @@ function runSearch(jaml, cb) {
 }
 
 // ---------------------------------------------------------------------------
-// 🎲 Magic: aesthetic search. runAestheticSearch is ONE long synchronous
-// enumeration (no batch/yield param), so on the main thread it would freeze the
-// UI with no way to Stop. We run it in a Web Worker instead: results stream back
-// via postMessage, and Stop just terminates the worker. Module workers don't
-// inherit the page importmap, but motely-wasm's internal imports are all
-// relative, so absolute CDN URLs for the two entry modules resolve everything.
+// 🎲 Magic: aesthetic search. MotelyUtilities hands back the keyword list for an
+// aesthetic as a plain array, so we slice it into chunks and score each chunk
+// with searchList — the UI keeps painting and Stop lands between chunks. The
+// Web Worker this used to need is gone along with the one-shot synchronous
+// enumeration that forced it.
 // ---------------------------------------------------------------------------
-const CDN_MOTELY = "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/index.mjs";
-const CDN_WASM = "https://cdn.jsdelivr.net/npm/motely-wasm@21.2.0/dist/generated/modules/motely/wasm.g.mjs";
-
-// JamlAesthetic enum order (motely/filters/jaml): the magic the engine can chase.
 const AESTHETICS = [
-  { name: "Palindrome", value: 0 },
-  { name: "Echo", value: 1 },
-  { name: "Gross", value: 2 },
-  { name: "Funny", value: 3 },
-  { name: "Balatro", value: 4 },
+  { name: "Palindrome", keywords: () => MotelyUtilities.mirrorPatternKeywords(8) },
+  { name: "Repeater", keywords: () => MotelyUtilities.repeatCharKeywords(4) },
+  { name: "Step", keywords: () => MotelyUtilities.ascendingDigitLetterKeywords(8) },
+  { name: "Gross", keywords: () => MotelyUtilities.grossKeywords() },
+  { name: "Funny", keywords: () => MotelyUtilities.funnyKeywords() },
+  { name: "Balatro", keywords: () => MotelyUtilities.balatroKeywords() },
 ];
-
-// Built as a line array (no backticks) so the worker body can't terminate this
-// module's template literals.
-const WORKER_SRC = [
-  'import bootsharp from "' + CDN_MOTELY + '";',
-  'import { Program } from "' + CDN_WASM + '";',
-  'self.onmessage = async (e) => {',
-  '  const { jaml, aesthetic } = e.data;',
-  '  try {',
-  '    if (bootsharp.getStatus() === bootsharp.BootStatus.Standby) await bootsharp.boot();',
-  '    const config = Program.fromJaml(jaml);',
-  '    Program.onScoredResult.subscribe((r) => self.postMessage({ t: "hit", seed: r.seed, score: r.score }));',
-  '    Program.onProgress.subscribe((p) => self.postMessage({ t: "prog", scanned: Number(p.seedsSearched), hits: Number(p.matchingSeeds), sps: Math.round((p.seedsPerMillisecond || 0) * 1000) }));',
-  '    const run = Program.runAestheticSearch(config, aesthetic);',
-  '    self.postMessage({ t: "done", scanned: Number(run.totalSeedsSearched), hits: Number(run.matchingSeeds) });',
-  '  } catch (err) {',
-  '    self.postMessage({ t: "err", message: String((err && err.message) || err) });',
-  '  }',
-  '};',
-].join("\n");
+const MAGIC_CHUNK = 4096;
 
 function runMagicSearch(jaml, aesthetic, cb) {
-  const url = URL.createObjectURL(new Blob([WORKER_SRC], { type: "text/javascript" }));
-  const worker = new Worker(url, { type: "module" });
+  const base = MotelyJaml.fromJaml(stripSeeds(jaml));
+  let stopped = false;
 
   let best = new Map();
   let lastBestEmit = 0;
@@ -393,41 +370,40 @@ function runMagicSearch(jaml, aesthetic, cb) {
     cb.onBest(top);
   };
 
-  let resolveDone;
-  const done = new Promise((res) => { resolveDone = res; });
-  let finished = false;
-  const finish = () => {
-    if (finished) return;
-    finished = true;
-    try { worker.terminate(); } catch (_) {}
-    URL.revokeObjectURL(url);
-    emitBest(true);
-    resolveDone();
+  const onScored = (r) => {
+    const prev = best.get(r.seed);
+    if (prev === undefined || r.score > prev) best.set(r.seed, r.score);
+    cb.onHit({ seed: r.seed, score: r.score });
+    emitBest(false);
   };
+  MotelySearch.onScoredResult.subscribe(onScored);
 
-  worker.onmessage = (e) => {
-    const d = e.data;
-    if (d.t === "hit") {
-      const prev = best.get(d.seed);
-      if (prev === undefined || d.score > prev) best.set(d.seed, d.score);
-      cb.onHit({ seed: d.seed, score: d.score });
-      emitBest(false);
-    } else if (d.t === "prog") {
-      cb.onProgress({ scanned: d.scanned, hits: d.hits, seedsPerSecond: d.sps });
-    } else if (d.t === "done") {
-      cb.onProgress({ scanned: d.scanned, hits: d.hits, seedsPerSecond: 0 });
-      finish();
-    } else if (d.t === "err") {
-      cb.onError(d.message);
-      finish();
+  const done = (async () => {
+    let scanned = 0, hits = 0;
+    const started = performance.now();
+    const report = () => {
+      const sec = (performance.now() - started) / 1000;
+      cb.onProgress({ scanned, hits, seedsPerSecond: sec > 0 ? Math.round(scanned / sec) : 0 });
+    };
+    try {
+      const keywords = aesthetic.keywords();
+      for (let i = 0; i < keywords.length && !stopped; i += MAGIC_CHUNK) {
+        await new Promise((res) => setTimeout(res, 0)); // yield: paint + Stop land
+        const chunk = keywords.slice(i, i + MAGIC_CHUNK);
+        const found = await MotelySearch.searchList({ ...base, seeds: chunk });
+        scanned += chunk.length;
+        hits += found.length;
+        report();
+      }
+    } catch (e) {
+      cb.onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      MotelySearch.onScoredResult.unsubscribe(onScored);
+      report(); emitBest(true);
     }
-  };
-  worker.onerror = (ev) => { cb.onError(ev.message || "worker error"); finish(); };
+  })();
 
-  // Strip saved seeds; magic runs the filter over the aesthetic enumeration.
-  worker.postMessage({ jaml: stripSeeds(jaml), aesthetic });
-
-  return { done, stop: finish };
+  return { done, stop: () => { stopped = true; } };
 }
 
 // ---------------------------------------------------------------------------
@@ -546,7 +522,7 @@ function App() {
     };
 
     try {
-      const handle = runMagicSearch(jaml, pick.value, {
+      const handle = runMagicSearch(jaml, pick, {
         onHit: (hit) => { rows.add(hit); paint(false); },
         onProgress: (s) => { setStats(s); setPeakSpeed((p) => Math.max(p, s.seedsPerSecond)); },
         onBest: (seeds) => { setBestCount(seeds.length); setJaml((prev) => writeSeeds(prev, seeds)); },
@@ -642,7 +618,7 @@ function App() {
         ? html`<button type="button" className="run run-stop" onClick=${onStop}>Stop</button>`
         : html`<div className="runrow">
             <button type="button" className="run" disabled=${boot !== "ready"} onClick=${onSearch}>${boot === "ready" ? "Search Seeds" : "Booting…"}</button>
-            <button type="button" className="run run-magic" disabled=${boot !== "ready"} onClick=${onMagic} title="Search a random aesthetic: Palindrome · Echo · Gross · Funny · Balatro">🎲 Magic</button>
+            <button type="button" className="run run-magic" disabled=${boot !== "ready"} onClick=${onMagic} title="Search a random aesthetic: Palindrome · Repeater · Step · Gross · Funny · Balatro">🎲 Magic</button>
           </div>`}
 
       ${results.length > 0 ? html`

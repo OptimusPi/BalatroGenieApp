@@ -11,12 +11,22 @@ client-side on the visitor's CPU; aesthetic searches run in a Web Worker.
 These properties are the design — keep them intact:
 
 - **Ships as source.** `vercel.json` sets `framework: null`, `buildCommand: null`,
-  `outputDirectory: "."`. The repo root *is* the deploy.
-- **The importmap is the dependency manifest.** Dependencies resolve in the browser.
-- **Egress stays tiny.** The multi-MB base64 WASM rides jsDelivr, so this host
-  serves ~30KB of HTML. Large assets stay on the CDN.
+  `outputDirectory: "."`. The repo root *is* the deploy, and the browser runs
+  `index.html` unchanged.
+- **`package.json` pins versions; the importmap loads them.** `npm install` gives
+  local resolution, types, and a lockfile. The runtime keeps resolving from the
+  CDN through the importmap, so the two stay in step by hand — bump both.
+- **Egress stays tiny.** The multi-MB base64 WASM and jaml-ui's inlined sprite
+  sheets ride the CDN, so this host serves ~30KB of HTML.
 - **Compute stays client-side.** Server-side work belongs to the seedfinder.app
   project.
+
+## The packages
+
+`motely-wasm`, `jaml-ui`, `jaml-lang`, and `jaml-codemirror` are all pifreak's own
+work. Check npm for the current version before assuming an API — this app has
+sat three majors behind before. `jaml-ui` supersedes `jaml-codemirror`: it ships
+`JamlCodeEditor`, `JamlIde`, `JamlIdeToolbar`, and `JamlIdeVisual` directly.
 
 ## Date changes
 
