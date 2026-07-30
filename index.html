@@ -293,13 +293,12 @@ function runSearch(jaml, cb) {
   };
   MotelySearch.onScoredResult.subscribe(onScored);
 
-  // v25's search calls resolve to a result array rather than carrying the
-  // counters, so scanned/hits come from onProgress. Batch arithmetic is the
-  // floor for scanned, so the readout still climbs between progress ticks.
+  // onProgress fires once per batch, but its counters restart with every search
+  // call — seedsSearched/matchingSeeds are per-call, not run totals. So the
+  // cumulative figures come from batch arithmetic and the returned arrays, and
+  // onProgress supplies only the live rate.
   let scanned = 0, hits = 0, enginePerSecond = 0;
   const onProgress = (p) => {
-    scanned = Math.max(scanned, Number(p.seedsSearched));
-    hits = Math.max(hits, Number(p.matchingSeeds));
     enginePerSecond = Math.round((p.seedsPerMillisecond || 0) * 1000);
   };
   MotelySearch.onProgress.subscribe(onProgress);
@@ -317,8 +316,8 @@ function runSearch(jaml, cb) {
         cb.onPhase("seedlist");
         await new Promise((res) => setTimeout(res, 0));
         const found = await MotelySearch.searchList({ ...base, seeds: presetSeeds });
-        scanned = Math.max(scanned, presetSeeds.length);
-        hits = Math.max(hits, found.length);
+        scanned += presetSeeds.length;
+        hits += found.length;
         report(); emitBest(true);
       }
       // Phase 2 — continue sweeping the full space.
@@ -332,9 +331,10 @@ function runSearch(jaml, cb) {
         // No cutoff flag and no progress-interval tick in v25 — the call that
         // used to suppress every hit on a must-only filter cannot be
         // mis-parameterised any more.
-        await MotelySearch.searchSequential(config, BigInt(cursor), BigInt(end), BATCH_CHARS);
+        const found = await MotelySearch.searchSequential(config, BigInt(cursor), BigInt(end), BATCH_CHARS);
+        hits += found.length;
+        scanned += (end - cursor) * SEEDS_PER_BATCH;
         covered += end - cursor;
-        scanned = Math.max(scanned, covered * SEEDS_PER_BATCH);
         cursor = end >= TOTAL_BATCHES ? 0 : end;
         report();
       }
