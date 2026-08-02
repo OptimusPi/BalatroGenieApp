@@ -85,4 +85,4 @@ export function analyzeSeeds(jamlText) {
   return MotelyJamlyzer.analyzeSeeds(config);
 }
 
-export { MotelyJaml };
+export { MotelyJaml, MotelyJamlyzer };

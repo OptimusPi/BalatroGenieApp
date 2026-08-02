@@ -17,7 +17,7 @@ import {
   JamlyzerView,
 } from "jaml-ui";
 import "jaml-ui/fonts.css";
-import { useMotely, useSearch, analyzeSeeds, MotelyJaml } from "./useMotely.js";
+import { useMotely, useSearch, MotelyJaml, MotelyJamlyzer } from "./useMotely.js";
 
 const DEFAULT_JAML = `name: My First Search
 deck: Red
@@ -35,7 +35,10 @@ export default function App() {
   const [analyzerResult, setAnalyzerResult] = useState(null);
   const [analyzerError, setAnalyzerError] = useState(null);
 
+  const searchJamlRef = React.useRef(jaml);
+
   const handleSearch = useCallback(() => {
+    searchJamlRef.current = jaml;
     setSelectedSeed(null);
     setAnalyzerResult(null);
     search(jaml);
@@ -46,14 +49,19 @@ export default function App() {
       setSelectedSeed(seed);
       setAnalyzerError(null);
       try {
-        const results = analyzeSeeds(jaml);
-        const match = results.find((r) => r.seed === seed);
-        setAnalyzerResult(match || results[0]);
+        const frozenJaml = searchJamlRef.current;
+        const seedConfig = MotelyJaml.fromJaml(frozenJaml.replace(/^seeds:.*$/m, "") + `\nseeds: [${seed}]\n`);
+        const results = MotelyJamlyzer.analyzeSeeds(seedConfig);
+        if (!results.length) {
+          setAnalyzerError("No analysis returned for this seed");
+          return;
+        }
+        setAnalyzerResult(results[0]);
       } catch (e) {
         setAnalyzerError(e.message);
       }
     },
-    [jaml]
+    []
   );
 
   const searchResults = results.map((r) => ({
