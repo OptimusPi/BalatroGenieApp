@@ -29,9 +29,19 @@ export function useSearch() {
   const [progress, setProgress] = useState(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);
-  const searchRef = useRef(null);
+  const cancelRef = useRef(null);
+  const throttleRef = useRef(null);
+  const pendingProgressRef = useRef(null);
 
-  const search = useCallback(async (jamlText) => {
+  const stop = useCallback(() => {
+    if (cancelRef.current) {
+      cancelRef.current();
+      cancelRef.current = null;
+    }
+  }, []);
+
+  const search = useCallback(async (jamlText, mode = "findOne") => {
+    stop();
     setSearchError(null);
     setResults([]);
     setProgress(null);
@@ -50,9 +60,26 @@ export function useSearch() {
     }
 
     const found = [];
-    const onProgress = (p) => {
-      setProgress({ searched: p.seedsSearched, matches: p.matchingSeeds });
+    let cancelled = false;
+    cancelRef.current = () => { cancelled = true; };
+
+    const flushProgress = () => {
+      if (pendingProgressRef.current) {
+        setProgress({ ...pendingProgressRef.current });
+        pendingProgressRef.current = null;
+      }
     };
+
+    const onProgress = (p) => {
+      pendingProgressRef.current = { searched: p.seedsSearched, matches: p.matchingSeeds };
+      if (!throttleRef.current) {
+        throttleRef.current = setTimeout(() => {
+          throttleRef.current = null;
+          flushProgress();
+        }, 120);
+      }
+    };
+
     const onScored = (r) => {
       found.push({
         seed: r.seed,
@@ -67,22 +94,40 @@ export function useSearch() {
     setSearching(true);
 
     try {
-      await MotelySearch.searchList(config);
+      if (mode === "list") {
+        await MotelySearch.searchList(config);
+      } else if (mode === "findOne") {
+        await MotelySearch.findOne(config);
+      } else if (mode === "random") {
+        await MotelySearch.searchRandom(config, 10000);
+      } else if (mode === "collect") {
+        await MotelySearch.collect(config, 100n);
+      }
     } catch (e) {
-      setSearchError(e.message);
+      if (!cancelled) setSearchError(e.message);
     } finally {
       MotelySearch.onProgress.unsubscribe(onProgress);
       MotelySearch.onScoredResult.unsubscribe(onScored);
+      if (throttleRef.current) {
+        clearTimeout(throttleRef.current);
+        throttleRef.current = null;
+      }
+      flushProgress();
       setSearching(false);
+      cancelRef.current = null;
     }
-  }, []);
+  }, [stop]);
 
-  return { results, progress, searching, searchError, search };
+  return { results, progress, searching, searchError, search, stop };
 }
 
-export function analyzeSeeds(jamlText) {
-  const config = MotelyJaml.fromJaml(jamlText);
-  return MotelyJamlyzer.analyzeSeeds(config);
+export function parseDeckStake(jamlText) {
+  const deckMatch = jamlText.match(/^deck:\s*(.+)$/m);
+  const stakeMatch = jamlText.match(/^stake:\s*(.+)$/m);
+  return {
+    deck: deckMatch ? deckMatch[1].trim() : undefined,
+    stake: stakeMatch ? stakeMatch[1].trim() : undefined,
+  };
 }
 
-export { MotelyJaml, MotelyJamlyzer };
+export { MotelyJaml, MotelyJamlyzer, MotelySearch };
