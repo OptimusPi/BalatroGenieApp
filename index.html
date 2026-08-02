@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Balatro Genie</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #0d0d1a;
+  --card: #16132b;
+  --glow: #b366ff;
+  --gold: #ffd700;
+  --red: #e94560;
+  --text: #e8e0f0;
+  --dim: #8878a0;
+  --input-bg: #1e1a33;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Fredoka', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+.lamp {
+  margin-top: 3rem;
+  font-size: 5rem;
+  animation: float 3s ease-in-out infinite;
+  cursor: default;
+  user-select: none;
+  filter: drop-shadow(0 0 20px rgba(179, 102, 255, 0.5));
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--glow), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.subtitle {
+  color: var(--dim);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.wish-box {
+  background: var(--card);
+  border: 1px solid rgba(179, 102, 255, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 0 40px rgba(179, 102, 255, 0.08);
+}
+
+label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--dim);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+input, select {
+  background: var(--input-bg);
+  border: 1px solid rgba(179, 102, 255, 0.25);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: var(--glow);
+}
+
+input::placeholder { color: #5a5070; }
+
+.joker-search-wrap {
+  position: relative;
+}
+
+#joker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--input-bg);
+  border: 1px solid var(--glow);
+  border-radius: 0 0 10px 10px;
+  z-index: 10;
+  display: none;
+}
+
+#joker-dropdown.open { display: block; }
+
+.joker-option {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  border-bottom: 1px solid rgba(179, 102, 255, 0.1);
+}
+
+.joker-option:hover, .joker-option.active {
+  background: rgba(179, 102, 255, 0.15);
+  color: var(--gold);
+}
+
+.wish-btn {
+  background: linear-gradient(135deg, var(--glow), #8833cc);
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem;
+  color: white;
+  font-family: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3);
+}
+
+.wish-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+  box-shadow: 0 6px 30px rgba(179, 102, 255, 0.5);
+}
+
+.wish-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wish-btn.searching {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3); }
+  50% { box-shadow: 0 4px 40px rgba(179, 102, 255, 0.7); }
+}
+
+#result-area {
+  margin-top: 2rem;
+  width: 90%;
+  max-width: 460px;
+  text-align: center;
+}
+
+.result-card {
+  background: var(--card);
+  border: 2px solid var(--gold);
+  border-radius: 16px;
+  padding: 2rem;
+  animation: reveal 0.5s ease-out;
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
+}
+
+@keyframes reveal {
+  from { opacity: 0; transform: scale(0.9) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.result-label {
+  font-size: 0.85rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.result-seed {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.result-details {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--dim);
+}
+
+.result-details span {
+  color: var(--glow);
+  font-weight: 600;
+}
+
+.result-time {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #5a5070;
+}
+
+#boot-status {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--dim);
+}
+
+.error {
+  color: var(--red);
+  background: rgba(233, 69, 96, 0.1);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 10px;
+  padding: 1rem;
+  font-size: 0.9rem;
+}
+</style>
+</head>
+<body>
+
+<div class="lamp">🧞</div>
+<h1>Balatro Genie</h1>
+<p class="subtitle">wish for a seed, get a seed</p>
+
+<div class="wish-box">
+  <label>
+    your joker
+    <div class="joker-search-wrap">
+      <input type="text" id="joker-input" placeholder="start typing... Blueprint, DNA, Perkeo..." autocomplete="off">
+      <div id="joker-dropdown"></div>
+    </div>
+  </label>
+
+  <label>
+    your name <span style="font-weight:400; color:#5a5070">(optional — baked into the seed)</span>
+    <input type="text" id="name-input" placeholder="up to 7 letters" maxlength="7">
+  </label>
+
+  <button class="wish-btn" id="wish-btn" disabled>loading engine...</button>
+</div>
+
+<div id="boot-status"></div>
+<div id="result-area"></div>
+
+<script type="module">
+import bootsharp, { MotelyJaml, MotelySearch } from "./node_modules/motely-wasm/dist/index.mjs";
+
+const JOKERS = [
+  "Joker","Greedy Joker","Lusty Joker","Wrathful Joker","Gluttonous Joker",
+  "Jolly Joker","Zany Joker","Mad Joker","Crazy Joker","Droll Joker",
+  "Sly Joker","Wily Joker","Clever Joker","Devious Joker","Crafty Joker",
+  "Half Joker","Credit Card","Banner","Mystic Summit","8 Ball",
+  "Misprint","Raised Fist","Chaos the Clown","Scary Face","Abstract Joker",
+  "Delayed Gratification","Gros Michel","Even Steven","Odd Todd","Scholar",
+  "Business Card","Supernova","Ride the Bus","Egg","Runner",
+  "Ice Cream","Splash","Blue Joker","Faceless Joker","Green Joker",
+  "Superposition","To Do List","Cavendish","Red Card","Square Joker",
+  "Riff-Raff","Photograph","Reserved Parking","Mail-In Rebate","Hallucination",
+  "Fortune Teller","Juggler","Drunkard","Golden Joker","Popcorn",
+  "Walkie Talkie","Smiley Face","Golden Ticket","Swashbuckler","Hanging Chad",
+  "Shoot the Moon","Joker Stencil","Four Fingers","Mime","Ceremonial Dagger",
+  "Marble Joker","Loyalty Card","Dusk","Fibonacci","Steel Joker",
+  "Hack","Pareidolia","Space Joker","Burglar","Blackboard",
+  "Sixth Sense","Constellation","Hiker","Card Sharp","Madness",
+  "Séance","Vampire","Shortcut","Hologram","Cloud 9",
+  "Rocket","Midas Mask","Luchador","Gift Card","Turtle Bean",
+  "Erosion","To the Moon","Stone Joker","Lucky Cat","Bull",
+  "Diet Cola","Trading Card","Flash Card","Spare Trousers","Ramen",
+  "Seltzer","Castle","Mr. Bones","Acrobat","Sock and Buskin",
+  "Troubadour","Certificate","Smeared Joker","Throwback","Rough Gem",
+  "Bloodstone","Arrowhead","Onyx Agate","Glass Joker","Showman",
+  "Flower Pot","Merry Andy","Oops! All 6s","The Idol","Seeing Double",
+  "Matador","Satellite","Cartomancer","Astronomer","Bootstraps",
+  "DNA","Vagabond","Baron","Obelisk","Baseball Card",
+  "Ancient Joker","Campfire","Blueprint","Wee Joker","Hit the Road",
+  "The Duo","The Trio","The Family","The Order","The Tribe",
+  "Stuntman","Invisible Joker","Brainstorm","Driver's License","Burnt Joker",
+  "Canio","Triboulet","Yorick","Chicot","Perkeo"
+];
+
+const JOKER_TO_PASCAL = {};
+JOKERS.forEach(j => {
+  JOKER_TO_PASCAL[j.toLowerCase()] = j.replace(/[^a-zA-Z0-9]/g, "")
+    .replace("ChaostheClown", "ChaostheClown")
+    .replace("8Ball", "EightBall")
+    .replace("OopsAll6s", "OopsAll6s");
+});
+
+const DISPLAY_TO_JAML = {};
+JOKERS.forEach(j => {
+  let pascal = j.replace(/[^a-zA-Z0-9 ]/g, "").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+  if (j === "8 Ball") pascal = "EightBall";
+  if (j === "Chaos the Clown") pascal = "ChaostheClown";
+  if (j === "Oops! All 6s") pascal = "OopsAll6s";
+  if (j === "Riff-Raff") pascal = "RiffRaff";
+  if (j === "Mail-In Rebate") pascal = "MailInRebate";
+  if (j === "Mr. Bones") pascal = "MrBones";
+  if (j === "Driver's License") pascal = "DriversLicense";
+  if (j === "Séance") pascal = "Seance";
+  DISPLAY_TO_JAML[j] = pascal;
+});
+
+const jokerInput = document.getElementById("joker-input");
+const dropdown = document.getElementById("joker-dropdown");
+const nameInput = document.getElementById("name-input");
+const wishBtn = document.getElementById("wish-btn");
+const bootStatus = document.getElementById("boot-status");
+const resultArea = document.getElementById("result-area");
+
+let selectedJoker = null;
+let activeIdx = -1;
+
+function renderDropdown(filter) {
+  const matches = filter
+    ? JOKERS.filter(j => j.toLowerCase().includes(filter.toLowerCase())).slice(0, 12)
+    : JOKERS.slice(0, 12);
+
+  if (matches.length === 0) {
+    dropdown.classList.remove("open");
+    return;
+  }
+
+  activeIdx = -1;
+  dropdown.innerHTML = matches.map((j, i) =>
+    `<div class="joker-option" data-joker="${j}" data-idx="${i}">${j}</div>`
+  ).join("");
+  dropdown.classList.add("open");
+
+  dropdown.querySelectorAll(".joker-option").forEach(el => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      pick(el.dataset.joker);
+    });
+  });
+}
+
+function pick(joker) {
+  selectedJoker = joker;
+  jokerInput.value = joker;
+  dropdown.classList.remove("open");
+}
+
+jokerInput.addEventListener("focus", () => renderDropdown(jokerInput.value));
+jokerInput.addEventListener("input", () => {
+  selectedJoker = null;
+  renderDropdown(jokerInput.value);
+});
+jokerInput.addEventListener("blur", () => {
+  setTimeout(() => dropdown.classList.remove("open"), 150);
+});
+jokerInput.addEventListener("keydown", (e) => {
+  const items = dropdown.querySelectorAll(".joker-option");
+  if (!items.length) return;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    activeIdx = Math.max(activeIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle("active", i === activeIdx));
+  } else if (e.key === "Enter" && activeIdx >= 0) {
+    e.preventDefault();
+    pick(items[activeIdx].dataset.joker);
+  }
+});
+
+nameInput.addEventListener("input", () => {
+  nameInput.value = nameInput.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+});
+
+bootStatus.textContent = "waking the genie...";
+await bootsharp.boot();
+bootStatus.textContent = "";
+wishBtn.textContent = "make a wish ✨";
+wishBtn.disabled = false;
+
+wishBtn.addEventListener("click", async () => {
+  const joker = selectedJoker || jokerInput.value.trim();
+  if (!joker) {
+    jokerInput.focus();
+    return;
+  }
+
+  const pascal = DISPLAY_TO_JAML[joker];
+  if (!pascal) {
+    resultArea.innerHTML = `<div class="error">unknown joker: "${joker}" — pick one from the list</div>`;
+    return;
+  }
+
+  const keyword = nameInput.value.trim().toUpperCase();
+
+  wishBtn.disabled = true;
+  wishBtn.textContent = "the genie stirs...";
+  wishBtn.classList.add("searching");
+  resultArea.innerHTML = "";
+
+  const jaml = [
+    `name: Genie Wish`,
+    `deck: Red`,
+    `stake: White`,
+    keyword ? `aesthetics: [Palindrome]` : ``,
+    `must:`,
+    `  - joker: ${pascal}`,
+    `    antes: [1, 2]`,
+  ].filter(Boolean).join("\n");
+
+  const t0 = performance.now();
+
+  try {
+    let results;
+    if (keyword && keyword.length >= 2) {
+      const config = MotelyJaml.fromJaml(jaml.replace(/aesthetics:.*\n?/, ""));
+      results = await MotelySearch.searchRandom(config, 50000);
+      const kw = keyword;
+      const matched = results.filter(r => r.seed.includes(kw));
+      if (matched.length > 0) results = matched;
+    } else {
+      const config = MotelyJaml.fromJaml(jaml);
+      results = await MotelySearch.findOne(config);
+    }
+
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+    if (results.length > 0) {
+      const best = results.reduce((a, b) => a.score >= b.score ? a : b);
+      resultArea.innerHTML = `
+        <div class="result-card">
+          <div class="result-label">your seed</div>
+          <div class="result-seed">${best.seed}</div>
+          <div class="result-details">
+            <span>${joker}</span> guaranteed in antes 1–2
+          </div>
+          <div class="result-time">found in ${elapsed}s</div>
+        </div>
+      `;
+    } else {
+      resultArea.innerHTML = `<div class="error">the genie found nothing — try a different joker</div>`;
+    }
+  } catch (e) {
+    resultArea.innerHTML = `<div class="error">${e.message || e}</div>`;
+  }
+
+  wishBtn.classList.remove("searching");
+  wishBtn.textContent = "make a wish ✨";
+  wishBtn.disabled = false;
+});
+</script>
+</body>
+</html>

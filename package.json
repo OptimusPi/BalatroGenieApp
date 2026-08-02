@@ -1,0 +1,9 @@
+{
+  "name": "balatro-genie",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "motely-wasm": "25.0.3"
+  }
+}
