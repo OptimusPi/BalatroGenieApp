@@ -430,12 +430,10 @@ wishBtn.addEventListener("click", async () => {
 
   try {
     let results;
-    if (keyword && keyword.length >= 2) {
+    if (keyword) {
       const config = MotelyJaml.fromJaml(jaml.replace(/aesthetics:.*\n?/, ""));
       results = await MotelySearch.searchRandom(config, 50000);
-      const kw = keyword;
-      const matched = results.filter(r => r.seed.includes(kw));
-      if (matched.length > 0) results = matched;
+      results = results.filter(r => r.seed.includes(keyword));
     } else {
       const config = MotelyJaml.fromJaml(jaml);
       results = await MotelySearch.findOne(config);
@@ -456,7 +454,7 @@ wishBtn.addEventListener("click", async () => {
         </div>
       `;
     } else {
-      resultArea.innerHTML = `<div class="error">the genie found nothing — try a different joker</div>`;
+      resultArea.innerHTML = `<div class="error">the genie found nothing${keyword ? ` with "${keyword}" in the seed` : ""} — try again or pick a different joker</div>`;
     }
   } catch (e) {
     resultArea.innerHTML = `<div class="error">${e.message || e}</div>`;
