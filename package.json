@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
     "motely-wasm": "25.0.3"
   },
   "devDependencies": {
