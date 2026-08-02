@@ -298,14 +298,6 @@ const JOKERS = [
   "Canio","Triboulet","Yorick","Chicot","Perkeo"
 ];
 
-const JOKER_TO_PASCAL = {};
-JOKERS.forEach(j => {
-  JOKER_TO_PASCAL[j.toLowerCase()] = j.replace(/[^a-zA-Z0-9]/g, "")
-    .replace("ChaostheClown", "ChaostheClown")
-    .replace("8Ball", "EightBall")
-    .replace("OopsAll6s", "OopsAll6s");
-});
-
 const DISPLAY_TO_JAML = {};
 JOKERS.forEach(j => {
   let pascal = j.replace(/[^a-zA-Z0-9 ]/g, "").split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("");
@@ -387,14 +379,88 @@ jokerInput.addEventListener("keydown", (e) => {
 });
 
 nameInput.addEventListener("input", () => {
-  nameInput.value = nameInput.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  // Balatro's seed alphabet is 1-9 + A-Z: no zero, so map 0 → O
+  nameInput.value = nameInput.value.toUpperCase().replace(/0/g, "O").replace(/[^A-Z1-9]/g, "");
 });
 
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+}
+
 bootStatus.textContent = "waking the genie...";
-await bootsharp.boot();
-bootStatus.textContent = "";
-wishBtn.textContent = "make a wish ✨";
-wishBtn.disabled = false;
+try {
+  await bootsharp.boot();
+  bootStatus.textContent = "";
+  wishBtn.textContent = "make a wish ✨";
+  wishBtn.disabled = false;
+} catch (e) {
+  bootStatus.textContent = "";
+  wishBtn.textContent = "engine failed to load";
+  resultArea.innerHTML = `<div class="error">the genie's lamp is cracked: ${esc(e.message || e)}<br>reload the page to try again</div>`;
+  throw e;
+}
+
+const ALPHABET = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const SEED_LEN = 8;
+const CANDIDATE_CAP = 50000;
+
+// Every 8-char seed containing `name` is name + padding at some position.
+// Enumerate them all when the space is small; sample it when it isn't.
+function candidateSeeds(name, cap) {
+  const padLen = SEED_LEN - name.length;
+  const positions = padLen + 1;
+  const total = positions * Math.pow(ALPHABET.length, padLen);
+  const seeds = new Set();
+
+  if (total <= cap) {
+    const padCount = Math.pow(ALPHABET.length, padLen);
+    for (let pos = 0; pos < positions; pos++) {
+      for (let i = 0; i < padCount; i++) {
+        let x = i, pad = "";
+        for (let d = 0; d < padLen; d++) {
+          pad += ALPHABET[x % ALPHABET.length];
+          x = Math.floor(x / ALPHABET.length);
+        }
+        seeds.add(pad.slice(0, pos) + name + pad.slice(pos));
+      }
+    }
+    return { seeds: [...seeds], exhaustive: true };
+  }
+
+  let guard = cap * 3;
+  while (seeds.size < cap && guard-- > 0) {
+    const pos = Math.floor(Math.random() * positions);
+    let pad = "";
+    for (let d = 0; d < padLen; d++) {
+      pad += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    }
+    seeds.add(pad.slice(0, pos) + name + pad.slice(pos));
+  }
+  return { seeds: [...seeds], exhaustive: false };
+}
+
+function buildJaml(pascal, antes, seedList) {
+  return [
+    `name: Genie Wish`,
+    `deck: Red`,
+    `stake: White`,
+    seedList ? `seeds: [${seedList.join(", ")}]` : ``,
+    `must:`,
+    `  - joker: ${pascal}`,
+    `    antes: [${antes.join(", ")}]`,
+  ].filter(Boolean).join("\n");
+}
+
+async function searchSeedList(seedList, pascal, antes) {
+  const CHUNK = 2500;
+  for (let i = 0; i < seedList.length; i += CHUNK) {
+    const config = MotelyJaml.fromJaml(buildJaml(pascal, antes, seedList.slice(i, i + CHUNK)));
+    const results = await MotelySearch.searchList(config);
+    if (results.length > 0) return results;
+    bootStatus.textContent = `checked ${Math.min(i + CHUNK, seedList.length)} of ${seedList.length} seeds with your name...`;
+  }
+  return [];
+}
 
 wishBtn.addEventListener("click", async () => {
   const joker = selectedJoker || jokerInput.value.trim();
@@ -405,38 +471,55 @@ wishBtn.addEventListener("click", async () => {
 
   const pascal = DISPLAY_TO_JAML[joker];
   if (!pascal) {
-    resultArea.innerHTML = `<div class="error">unknown joker: "${joker}" — pick one from the list</div>`;
+    resultArea.innerHTML = `<div class="error">unknown joker: "${esc(joker)}" — pick one from the list</div>`;
     return;
   }
 
-  const keyword = nameInput.value.trim().toUpperCase();
+  const keyword = nameInput.value.trim();
 
   wishBtn.disabled = true;
   wishBtn.textContent = "the genie stirs...";
   wishBtn.classList.add("searching");
   resultArea.innerHTML = "";
 
-  const jaml = [
-    `name: Genie Wish`,
-    `deck: Red`,
-    `stake: White`,
-    keyword ? `aesthetics: [Palindrome]` : ``,
-    `must:`,
-    `  - joker: ${pascal}`,
-    `    antes: [1, 2]`,
-  ].filter(Boolean).join("\n");
+  const onProgress = p => {
+    const m = Number(p.seedsSearched) / 1e6;
+    if (m >= 0.1) wishBtn.textContent = `searching... ${m.toFixed(1)}M seeds`;
+  };
+  MotelySearch.onProgress.subscribe(onProgress);
 
   const t0 = performance.now();
 
   try {
     let results;
+    let anteNote = "guaranteed in antes 1–2";
+
     if (keyword) {
-      const config = MotelyJaml.fromJaml(jaml.replace(/aesthetics:.*\n?/, ""));
-      results = await MotelySearch.searchRandom(config, 50000);
-      results = results.filter(r => r.seed.includes(keyword));
+      const { seeds, exhaustive } = candidateSeeds(keyword, CANDIDATE_CAP);
+      bootStatus.textContent = exhaustive
+        ? `only ${seeds.length} seeds can contain "${keyword}" — checking every one...`
+        : `checking ${seeds.length} seeds containing "${keyword}"...`;
+
+      results = await searchSeedList(seeds, pascal, [1, 2]);
+
+      if (results.length === 0 && exhaustive) {
+        bootStatus.textContent = `none in antes 1–2 — widening to antes 1–8...`;
+        results = await searchSeedList(seeds, pascal, [1, 2, 3, 4, 5, 6, 7, 8]);
+        anteNote = "appears within antes 1–8";
+      }
+
+      if (results.length === 0) {
+        const detail = exhaustive
+          ? `all ${seeds.length} seeds containing "${esc(keyword)}" checked — none has ${esc(joker)} even by ante 8. try fewer letters.`
+          : `checked ${seeds.length} seeds containing "${esc(keyword)}" — no ${esc(joker)} in antes 1–2. wish again for a fresh batch, or try fewer letters.`;
+        resultArea.innerHTML = `<div class="error">${detail}</div>`;
+      }
     } else {
-      const config = MotelyJaml.fromJaml(jaml);
+      const config = MotelyJaml.fromJaml(buildJaml(pascal, [1, 2]));
       results = await MotelySearch.findOne(config);
+      if (results.length === 0) {
+        resultArea.innerHTML = `<div class="error">the genie found nothing — try again or pick a different joker</div>`;
+      }
     }
 
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
@@ -446,20 +529,20 @@ wishBtn.addEventListener("click", async () => {
       resultArea.innerHTML = `
         <div class="result-card">
           <div class="result-label">your seed</div>
-          <div class="result-seed">${best.seed}</div>
+          <div class="result-seed">${esc(best.seed)}</div>
           <div class="result-details">
-            <span>${joker}</span> guaranteed in antes 1–2
+            <span>${esc(joker)}</span> ${anteNote}
           </div>
           <div class="result-time">found in ${elapsed}s</div>
         </div>
       `;
-    } else {
-      resultArea.innerHTML = `<div class="error">the genie found nothing${keyword ? ` with "${keyword}" in the seed` : ""} — try again or pick a different joker</div>`;
     }
   } catch (e) {
-    resultArea.innerHTML = `<div class="error">${e.message || e}</div>`;
+    resultArea.innerHTML = `<div class="error">${esc(e.message || e)}</div>`;
   }
 
+  MotelySearch.onProgress.unsubscribe(onProgress);
+  bootStatus.textContent = "";
   wishBtn.classList.remove("searching");
   wishBtn.textContent = "make a wish ✨";
   wishBtn.disabled = false;
