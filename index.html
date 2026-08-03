@@ -387,6 +387,18 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 }
 
+// Typed joker names match regardless of case and punctuation:
+// "triboulet", "mr bones", "oops all 6s" all resolve.
+function resolveJoker(text) {
+  const norm = s => s.normalize("NFD").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const t = norm(text);
+  if (!t) return null;
+  const exact = JOKERS.find(j => norm(j) === t);
+  if (exact) return exact;
+  const partial = JOKERS.filter(j => norm(j).includes(t));
+  return partial.length === 1 ? partial[0] : null;
+}
+
 bootStatus.textContent = "waking the genie...";
 try {
   await bootsharp.boot();
@@ -463,17 +475,18 @@ async function searchSeedList(seedList, pascal, antes) {
 }
 
 wishBtn.addEventListener("click", async () => {
-  const joker = selectedJoker || jokerInput.value.trim();
-  if (!joker) {
+  const typed = jokerInput.value.trim();
+  if (!selectedJoker && !typed) {
     jokerInput.focus();
     return;
   }
 
-  const pascal = DISPLAY_TO_JAML[joker];
-  if (!pascal) {
-    resultArea.innerHTML = `<div class="error">unknown joker: "${esc(joker)}" — pick one from the list</div>`;
+  const joker = selectedJoker || resolveJoker(typed);
+  if (!joker) {
+    resultArea.innerHTML = `<div class="error">unknown joker: "${esc(typed)}" — pick one from the list</div>`;
     return;
   }
+  const pascal = DISPLAY_TO_JAML[joker];
 
   const keyword = nameInput.value.trim();
 
