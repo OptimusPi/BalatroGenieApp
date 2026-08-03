@@ -2,22 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Balatro Genie</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
 
 :root {
-  --bg: #0d0d1a;
-  --card: #16132b;
-  --glow: #b366ff;
-  --gold: #ffd700;
-  --red: #e94560;
-  --text: #e8e0f0;
-  --dim: #8878a0;
-  --input-bg: #1e1a33;
+  --bg:        #0a0a0a;
+  --surface:   #111111;
+  --border:    #222222;
+  --gold:      #e8b84b;
+  --gold-dim:  #7a5e1a;
+  --red:       #c0392b;
+  --red-dim:   #5c1a14;
+  --text:      #d4cfc8;
+  --dim:       #5a5550;
+  --input-bg:  #161616;
+  --felt:      #0e1f15;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+}
 
 body {
   font-family: 'Fredoka', system-ui, sans-serif;
@@ -26,241 +34,375 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Header ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
   align-items: center;
-  overflow-x: hidden;
+  justify-content: space-between;
+  flex-shrink: 0;
 }
 
-.lamp {
-  margin-top: 3rem;
-  font-size: 5rem;
-  animation: float 3s ease-in-out infinite;
-  cursor: default;
-  user-select: none;
-  filter: drop-shadow(0 0 20px rgba(179, 102, 255, 0.5));
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-h1 {
-  font-size: 2.5rem;
+.wordmark {
+  font-size: 1.15rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--glow), var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin: 0.5rem 0 0.25rem;
+  color: var(--gold);
+  letter-spacing: 0.04em;
 }
 
-.subtitle {
+.wordmark span {
   color: var(--dim);
-  font-size: 1rem;
-  margin-bottom: 2rem;
+  font-weight: 400;
 }
 
-.wish-box {
-  background: var(--card);
-  border: 1px solid rgba(179, 102, 255, 0.2);
-  border-radius: 16px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 460px;
+.header-status {
+  font-size: 0.8rem;
+  color: var(--dim);
+}
+
+/* ── Main layout ── */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  min-height: 0;
+}
+
+/* ── Left panel: form ── */
+.panel-form {
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  box-shadow: 0 0 40px rgba(179, 102, 255, 0.08);
+  padding: 2.5rem 2rem;
+  gap: 2rem;
+  overflow-y: auto;
 }
 
-label {
+.panel-title {
+  font-size: 0.7rem;
   font-weight: 600;
-  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   color: var(--dim);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
 }
 
-input, select {
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--dim);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-top: -0.25rem;
+}
+
+input {
   background: var(--input-bg);
-  border: 1px solid rgba(179, 102, 255, 0.25);
-  border-radius: 10px;
-  padding: 0.7rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
   color: var(--text);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
 }
 
-input:focus, select:focus {
-  border-color: var(--glow);
+input:focus {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 3px rgba(232, 184, 75, 0.08);
 }
 
-input::placeholder { color: #5a5070; }
+input::placeholder { color: var(--dim); }
 
-.joker-search-wrap {
+.joker-wrap {
   position: relative;
 }
 
 #joker-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 2px);
   left: 0;
   right: 0;
-  max-height: 200px;
+  max-height: 220px;
   overflow-y: auto;
-  background: var(--input-bg);
-  border: 1px solid var(--glow);
-  border-radius: 0 0 10px 10px;
-  z-index: 10;
+  background: #1a1a1a;
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  z-index: 20;
   display: none;
 }
 
 #joker-dropdown.open { display: block; }
 
 .joker-option {
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.85rem;
   cursor: pointer;
-  font-size: 0.95rem;
-  border-bottom: 1px solid rgba(179, 102, 255, 0.1);
+  font-size: 0.9rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
 }
 
-.joker-option:hover, .joker-option.active {
-  background: rgba(179, 102, 255, 0.15);
+.joker-option:last-child { border-bottom: none; }
+
+.joker-option:hover,
+.joker-option.active {
+  background: rgba(232, 184, 75, 0.1);
   color: var(--gold);
 }
 
+/* ── Wish button ── */
 .wish-btn {
-  background: linear-gradient(135deg, var(--glow), #8833cc);
+  background: var(--gold);
   border: none;
-  border-radius: 12px;
-  padding: 0.9rem;
-  color: white;
+  border-radius: 6px;
+  padding: 0.8rem 1.25rem;
+  color: #0a0a0a;
   font-family: inherit;
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3);
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: 0.03em;
+  margin-top: 0.5rem;
 }
 
 .wish-btn:hover:not(:disabled) {
-  transform: scale(1.03);
-  box-shadow: 0 6px 30px rgba(179, 102, 255, 0.5);
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+.wish-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .wish-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .wish-btn.searching {
-  animation: pulse 1s ease-in-out infinite;
+  background: var(--gold-dim);
+  color: var(--gold);
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3); }
-  50% { box-shadow: 0 4px 40px rgba(179, 102, 255, 0.7); }
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
-#result-area {
-  margin-top: 2rem;
-  width: 90%;
-  max-width: 460px;
-  text-align: center;
-}
-
-.result-card {
-  background: var(--card);
-  border: 2px solid var(--gold);
-  border-radius: 16px;
-  padding: 2rem;
-  animation: reveal 0.5s ease-out;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
-}
-
-@keyframes reveal {
-  from { opacity: 0; transform: scale(0.9) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.result-label {
-  font-size: 0.85rem;
+/* ── Status line ── */
+#boot-status {
+  font-size: 0.8rem;
   color: var(--dim);
+  min-height: 1.2em;
+}
+
+/* ── Right panel: result ── */
+.panel-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  background: var(--felt);
+  position: relative;
+  overflow: hidden;
+}
+
+/* subtle felt grid */
+.panel-result::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.result-empty {
+  text-align: center;
+  color: var(--dim);
+}
+
+.result-empty-glyph {
+  font-size: 3.5rem;
+  opacity: 0.2;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.result-empty-text {
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.5rem;
+}
+
+/* the card */
+.result-card {
+  position: relative;
+  background: var(--surface);
+  border: 2px solid var(--gold-dim);
+  border-radius: 12px;
+  padding: 2.5rem 3rem;
+  min-width: 320px;
+  max-width: 480px;
+  text-align: center;
+  animation: card-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 0 0 1px rgba(232, 184, 75, 0.06),
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(232, 184, 75, 0.07);
+}
+
+/* corner pips */
+.result-card::before,
+.result-card::after {
+  content: '★';
+  position: absolute;
+  font-size: 0.7rem;
+  color: var(--gold-dim);
+}
+.result-card::before { top: 0.7rem; left: 0.9rem; }
+.result-card::after  { bottom: 0.7rem; right: 0.9rem; transform: rotate(180deg); }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.result-overline {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 1rem;
 }
 
 .result-seed {
-  font-size: 2.5rem;
+  font-size: 2.8rem;
   font-weight: 700;
   color: var(--gold);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   font-family: 'Courier New', monospace;
-  word-break: break-all;
+  line-height: 1;
+  margin-bottom: 1.5rem;
 }
 
-.result-details {
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: var(--dim);
+.result-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 auto 1.5rem;
+  width: 60%;
 }
 
-.result-details span {
-  color: var(--glow);
+.result-joker {
+  font-size: 1rem;
   font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.result-note {
+  font-size: 0.8rem;
+  color: var(--dim);
+  margin-bottom: 1rem;
 }
 
 .result-time {
-  margin-top: 0.75rem;
-  font-size: 0.8rem;
-  color: #5a5070;
-}
-
-#boot-status {
-  margin-top: 1rem;
-  font-size: 0.85rem;
+  font-size: 0.7rem;
   color: var(--dim);
+  letter-spacing: 0.06em;
 }
 
-.error {
-  color: var(--red);
-  background: rgba(233, 69, 96, 0.1);
-  border: 1px solid rgba(233, 69, 96, 0.3);
-  border-radius: 10px;
-  padding: 1rem;
-  font-size: 0.9rem;
+/* error */
+.error-card {
+  background: var(--surface);
+  border: 1px solid var(--red-dim);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.88rem;
+  color: #e07070;
+  line-height: 1.55;
+  max-width: 420px;
+  animation: card-in 0.3s ease;
+}
+
+/* ── Responsive collapse ── */
+@media (max-width: 740px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-form {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-result {
+    min-height: 300px;
+  }
 }
 </style>
 </head>
 <body>
 
-<div class="lamp">🧞</div>
-<h1>Balatro Genie</h1>
-<p class="subtitle">wish for a seed, get a seed</p>
+<header>
+  <div class="wordmark">Balatro <span>Genie</span></div>
+  <div class="header-status" id="header-status"></div>
+</header>
 
-<div class="wish-box">
-  <label>
-    your joker
-    <div class="joker-search-wrap">
-      <input type="text" id="joker-input" placeholder="start typing... Blueprint, DNA, Perkeo..." autocomplete="off">
-      <div id="joker-dropdown"></div>
+<main>
+  <section class="panel-form" aria-label="Wish form">
+    <div class="panel-title">Make a Wish</div>
+
+    <div class="field">
+      <label class="field-label" for="joker-input">Joker</label>
+      <div class="joker-wrap">
+        <input type="text" id="joker-input" placeholder="Blueprint, DNA, Perkeo..." autocomplete="off">
+        <div id="joker-dropdown" role="listbox"></div>
+      </div>
     </div>
-  </label>
 
-  <label>
-    your name <span style="font-weight:400; color:#5a5070">(optional — baked into the seed)</span>
-    <input type="text" id="name-input" placeholder="up to 7 letters" maxlength="7">
-  </label>
+    <div class="field">
+      <label class="field-label" for="name-input">Seed keyword <span class="field-hint">optional — baked into the seed</span></label>
+      <input type="text" id="name-input" placeholder="up to 7 chars — e.g. ADAM" maxlength="7">
+    </div>
 
-  <button class="wish-btn" id="wish-btn" disabled>loading engine...</button>
-</div>
+    <button class="wish-btn" id="wish-btn" disabled>Loading engine...</button>
+    <div id="boot-status" aria-live="polite"></div>
+  </section>
 
-<div id="boot-status"></div>
-<div id="result-area"></div>
+  <section class="panel-result" aria-label="Result" aria-live="polite">
+    <div id="result-area">
+      <div class="result-empty">
+        <span class="result-empty-glyph">&#9824;</span>
+        <div class="result-empty-text">Your seed will appear here</div>
+      </div>
+    </div>
+  </section>
+</main>
 
 <script type="module">
 import bootsharp, { MotelyJaml, MotelySearch } from "motely-wasm";
@@ -312,12 +454,13 @@ JOKERS.forEach(j => {
   DISPLAY_TO_JAML[j] = pascal;
 });
 
-const jokerInput = document.getElementById("joker-input");
-const dropdown = document.getElementById("joker-dropdown");
-const nameInput = document.getElementById("name-input");
-const wishBtn = document.getElementById("wish-btn");
-const bootStatus = document.getElementById("boot-status");
-const resultArea = document.getElementById("result-area");
+const jokerInput   = document.getElementById("joker-input");
+const dropdown     = document.getElementById("joker-dropdown");
+const nameInput    = document.getElementById("name-input");
+const wishBtn      = document.getElementById("wish-btn");
+const bootStatus   = document.getElementById("boot-status");
+const resultArea   = document.getElementById("result-area");
+const headerStatus = document.getElementById("header-status");
 
 let selectedJoker = null;
 let activeIdx = -1;
@@ -334,7 +477,7 @@ function renderDropdown(filter) {
 
   activeIdx = -1;
   dropdown.innerHTML = matches.map((j, i) =>
-    `<div class="joker-option" data-joker="${j}" data-idx="${i}">${j}</div>`
+    `<div class="joker-option" role="option" data-joker="${j}" data-idx="${i}">${j}</div>`
   ).join("");
   dropdown.classList.add("open");
 
@@ -387,8 +530,6 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 }
 
-// Typed joker names match regardless of case and punctuation:
-// "triboulet", "mr bones", "oops all 6s" all resolve.
 function resolveJoker(text) {
   const norm = s => s.normalize("NFD").toLowerCase().replace(/[^a-z0-9]/g, "");
   const t = norm(text);
@@ -399,16 +540,19 @@ function resolveJoker(text) {
   return partial.length === 1 ? partial[0] : null;
 }
 
+headerStatus.textContent = "loading engine...";
 bootStatus.textContent = "waking the genie...";
 try {
   await bootsharp.boot();
   bootStatus.textContent = "";
-  wishBtn.textContent = "make a wish ✨";
+  headerStatus.textContent = "ready";
+  wishBtn.textContent = "Make a Wish";
   wishBtn.disabled = false;
 } catch (e) {
   bootStatus.textContent = "";
-  wishBtn.textContent = "engine failed to load";
-  resultArea.innerHTML = `<div class="error">the genie's lamp is cracked: ${esc(e.message || e)}<br>reload the page to try again</div>`;
+  headerStatus.textContent = "engine failed";
+  wishBtn.textContent = "Engine failed to load";
+  resultArea.innerHTML = `<div class="error-card">The genie's lamp is cracked: ${esc(e.message || e)}<br>Reload the page to try again.</div>`;
   throw e;
 }
 
@@ -416,8 +560,6 @@ const ALPHABET = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const SEED_LEN = 8;
 const CANDIDATE_CAP = 50000;
 
-// Every 8-char seed containing `name` is name + padding at some position.
-// Enumerate them all when the space is small; sample it when it isn't.
 function candidateSeeds(name, cap) {
   const padLen = SEED_LEN - name.length;
   const positions = padLen + 1;
@@ -469,7 +611,7 @@ async function searchSeedList(seedList, pascal, antes) {
     const config = MotelyJaml.fromJaml(buildJaml(pascal, antes, seedList.slice(i, i + CHUNK)));
     const results = await MotelySearch.searchList(config);
     if (results.length > 0) return results;
-    bootStatus.textContent = `checked ${Math.min(i + CHUNK, seedList.length)} of ${seedList.length} seeds with your name...`;
+    bootStatus.textContent = `checked ${Math.min(i + CHUNK, seedList.length).toLocaleString()} of ${seedList.length.toLocaleString()} seeds...`;
   }
   return [];
 }
@@ -483,21 +625,24 @@ wishBtn.addEventListener("click", async () => {
 
   const joker = selectedJoker || resolveJoker(typed);
   if (!joker) {
-    resultArea.innerHTML = `<div class="error">unknown joker: "${esc(typed)}" — pick one from the list</div>`;
+    resultArea.innerHTML = `<div class="error-card">Unknown joker: "${esc(typed)}" — pick one from the list.</div>`;
     return;
   }
   const pascal = DISPLAY_TO_JAML[joker];
-
   const keyword = nameInput.value.trim();
 
   wishBtn.disabled = true;
-  wishBtn.textContent = "the genie stirs...";
+  wishBtn.textContent = "Searching...";
   wishBtn.classList.add("searching");
   resultArea.innerHTML = "";
+  headerStatus.textContent = "searching...";
 
   const onProgress = p => {
     const m = Number(p.seedsSearched) / 1e6;
-    if (m >= 0.1) wishBtn.textContent = `searching... ${m.toFixed(1)}M seeds`;
+    if (m >= 0.1) {
+      wishBtn.textContent = `${m.toFixed(1)}M seeds checked`;
+      headerStatus.textContent = `${m.toFixed(1)}M seeds`;
+    }
   };
   MotelySearch.onProgress.subscribe(onProgress);
 
@@ -510,8 +655,8 @@ wishBtn.addEventListener("click", async () => {
     if (keyword) {
       const { seeds, exhaustive } = candidateSeeds(keyword, CANDIDATE_CAP);
       bootStatus.textContent = exhaustive
-        ? `only ${seeds.length} seeds can contain "${keyword}" — checking every one...`
-        : `checking ${seeds.length} seeds containing "${keyword}"...`;
+        ? `${seeds.length.toLocaleString()} seeds can contain "${keyword}" — checking all...`
+        : `checking ${seeds.length.toLocaleString()} seeds containing "${keyword}"...`;
 
       results = await searchSeedList(seeds, pascal, [1, 2]);
 
@@ -523,41 +668,42 @@ wishBtn.addEventListener("click", async () => {
 
       if (results.length === 0) {
         const detail = exhaustive
-          ? `all ${seeds.length} seeds containing "${esc(keyword)}" checked — none has ${esc(joker)} even by ante 8. try fewer letters.`
-          : `checked ${seeds.length} seeds containing "${esc(keyword)}" — no ${esc(joker)} in antes 1–2. wish again for a fresh batch, or try fewer letters.`;
-        resultArea.innerHTML = `<div class="error">${detail}</div>`;
+          ? `All ${seeds.length.toLocaleString()} seeds containing "${esc(keyword)}" checked — none has ${esc(joker)} even by ante 8. Try fewer letters.`
+          : `Checked ${seeds.length.toLocaleString()} seeds containing "${esc(keyword)}" — no ${esc(joker)} in antes 1–2. Wish again for a fresh batch, or try fewer letters.`;
+        resultArea.innerHTML = `<div class="error-card">${detail}</div>`;
       }
     } else {
       const config = MotelyJaml.fromJaml(buildJaml(pascal, [1, 2]));
       results = await MotelySearch.findOne(config);
       if (results.length === 0) {
-        resultArea.innerHTML = `<div class="error">the genie found nothing — try again or pick a different joker</div>`;
+        resultArea.innerHTML = `<div class="error-card">The genie found nothing — try again or pick a different joker.</div>`;
       }
     }
 
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
 
-    if (results.length > 0) {
+    if (results && results.length > 0) {
       const best = results.reduce((a, b) => a.score >= b.score ? a : b);
       resultArea.innerHTML = `
         <div class="result-card">
-          <div class="result-label">your seed</div>
+          <div class="result-overline">Your Seed</div>
           <div class="result-seed">${esc(best.seed)}</div>
-          <div class="result-details">
-            <span>${esc(joker)}</span> ${anteNote}
-          </div>
+          <div class="result-divider"></div>
+          <div class="result-joker">${esc(joker)}</div>
+          <div class="result-note">${anteNote}</div>
           <div class="result-time">found in ${elapsed}s</div>
         </div>
       `;
     }
   } catch (e) {
-    resultArea.innerHTML = `<div class="error">${esc(e.message || e)}</div>`;
+    resultArea.innerHTML = `<div class="error-card">${esc(e.message || e)}</div>`;
   }
 
   MotelySearch.onProgress.unsubscribe(onProgress);
   bootStatus.textContent = "";
+  headerStatus.textContent = "ready";
   wishBtn.classList.remove("searching");
-  wishBtn.textContent = "make a wish ✨";
+  wishBtn.textContent = "Make a Wish";
   wishBtn.disabled = false;
 });
 </script>
