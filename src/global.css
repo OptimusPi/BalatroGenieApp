@@ -1,0 +1,27 @@
+/* App-level fixes on top of jimbo.css — background + picker grid overflow. */
+html,
+body,
+#root {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--j-darkest, #1e2b2d);
+}
+
+/* Cards render via transform scale; keep them inside their grid cells. */
+.genie-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  justify-items: center;
+}
+
+.genie-picker-grid button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  max-width: 100%;
+}
