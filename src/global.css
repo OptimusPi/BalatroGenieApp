@@ -7,12 +7,13 @@ body,
   background: var(--j-darkest, #1e2b2d);
 }
 
-/* Cards render via transform scale; keep them inside their grid cells. */
+/* Card canvases render 71x95 but their wrapper under-reports width;
+   give every cell a fixed footprint so cards never overlap. */
 .genie-picker-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
-  gap: 8px;
-  justify-items: center;
+  grid-template-columns: repeat(auto-fill, 80px);
+  gap: 10px;
+  justify-content: center;
 }
 
 .genie-picker-grid button {
@@ -21,7 +22,25 @@ body,
   padding: 0;
   cursor: pointer;
   display: flex;
+  align-items: center;
   justify-content: center;
-  overflow: hidden;
-  max-width: 100%;
+  width: 80px;
+  height: 100px;
+  border-radius: 6px;
+}
+
+.genie-picker-grid button:hover,
+.genie-picker-grid button:focus-visible {
+  outline: 2px solid var(--j-gold, #eac058);
+  outline-offset: 1px;
+}
+
+/* Card wrappers under-report their width (canvas scales via transform);
+   reserve a real footprint so neighbors don't overlap. */
+.genie-card-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  min-height: 140px;
 }

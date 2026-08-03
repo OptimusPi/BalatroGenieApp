@@ -189,7 +189,9 @@ export default function App() {
 
               {activeJoker && (
                 <JimboRow gap="md" align="center" justify="center" style={{ flexWrap: "wrap" }}>
-                  <JamlGameCard card={{ name: activeJoker }} type="joker" hoverTilt />
+                  <div className="genie-card-slot">
+                    <JamlGameCard card={{ name: activeJoker }} type="joker" hoverTilt />
+                  </div>
                   <JimboInset style={{ flex: "1 1 280px", minWidth: 240 }}>
                     <pre
                       style={{
@@ -248,7 +250,9 @@ export default function App() {
               <JimboStack gap="md" align="center">
                 <JimboSeedCopyChip value={result.seed} copiedLabel="copied!" />
                 <JimboRow gap="md" align="center" justify="center">
-                  <JamlGameCard card={{ name: result.joker, scale: 0.8 }} type="joker" hoverTilt />
+                  <div className="genie-card-slot">
+                    <JamlGameCard card={{ name: result.joker, scale: 0.8 }} type="joker" hoverTilt />
+                  </div>
                   <JimboStack gap="xs">
                     <JimboText size="md">{result.joker}</JimboText>
                     <JimboText size="sm" tone="muted">
