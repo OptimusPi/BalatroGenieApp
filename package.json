@@ -9,9 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "motely-wasm": "25.0.3"
+    "jaml-ui": "^4.4.0",
+    "motely-wasm": "25.0.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.5",
     "vite": "^8.2.0"
   }
 }
