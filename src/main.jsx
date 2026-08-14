@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import bootsharp, { MotelyJaml, MotelySearch } from 'motely-wasm'
 import { JimboApp, JimboBackground, JimboButton, JimboSectionHeader, JimboText, JimboTextArea } from 'jaml-ui/ui'
+import { JimboBalatroFooter } from 'jaml-ui'
 import 'jaml-ui/jimbo.css'
 import 'jaml-ui/fonts.css'
 import './styles.css'
@@ -33,7 +34,9 @@ function App() {
     setJaml((value) => value.replace(/joker: .+/, `joker: ${joker.replace(/[^a-zA-Z0-9 ]/g, '').replace(/ (.)/g, (_, c) => c.toUpperCase())}`))
   }
 
-  return <JimboBackground><JimboApp variant="page" scroll>
+  return <>
+    <JimboBackground />
+    <JimboApp variant="page" scroll>
     <main className="genie-shell">
       <header className="topbar"><div><JimboText size="lg" tone="bright">BALATRO GENIE</JimboText><span className="version">JAML SEARCH</span></div><span className="engine">{status}</span></header>
       <section className="intro"><p className="eyebrow">SEED FINDER</p><h1>Find the run<br /><em>you want to play.</em></h1><p className="lede">Write a simple JAML rule. Genie searches the seed space and hands you a playable seed.</p></section>
@@ -44,9 +47,10 @@ function App() {
         <JimboButton tone="orange" size="lg" fullWidth disabled={busy || status === 'Loading Motely…'} onClick={search}>{busy ? 'Searching…' : 'Find a seed'}</JimboButton>
       </section>
       {result && <section className="result"><p className="eyebrow">FOUND A MATCH</p><strong>{result.seed}</strong><p>Copy the seed into Balatro and start the run.</p></section>}
-      <footer>Powered by <b>motely-wasm 25.0.3</b> · JAML made readable</footer>
+      <JimboBalatroFooter style={{ position: 'static' }}>Powered by <b>motely-wasm 25.0.3</b> · JAML made readable</JimboBalatroFooter>
     </main>
-  </JimboApp></JimboBackground>
+    </JimboApp>
+  </>
 }
 
 createRoot(document.getElementById('root')).render(<App />)
