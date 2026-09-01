@@ -4,23 +4,32 @@
 <meta charset="utf-8">
 <title>Balatro Genie</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
-
+/* Palette: Balatro's actual table. Dark felt, chip red, gold. No purple.
+   Removed: 14 violet literals (--glow #b366ff, ten rgba(179,102,255,..),
+   #8833cc, #5a5070 x2) plus five violet-shifted neutrals that made the page
+   read purple even where nothing named a colour. Also gone, as the same
+   complaint in a different channel: the outer glows, the gradient-filled
+   heading, the scale-up hover, the bounce-in, and the 16px radii. */
 :root {
-  --bg: #0d0d1a;
-  --card: #16132b;
-  --glow: #b366ff;
-  --gold: #ffd700;
-  --red: #e94560;
-  --text: #e8e0f0;
-  --dim: #8878a0;
-  --input-bg: #1e1a33;
+  --bg:       #16211f;   /* felt */
+  --card:     #1e2b2d;   /* panel */
+  --edge:     #2a3a3f;   /* borders */
+  --input-bg: #131c1b;
+  --accent:   #fe5148;   /* Balatro red */
+  --accent-d: #a02721;   /* its paired shadow */
+  --gold:     #e4b643;
+  --red:      #fe5148;
+  --text:     #e8eef0;
+  --dim:      #8fa3a6;
+  --faint:    #5a6b6e;
+  --shadow:   #0b1211;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Fredoka', system-ui, sans-serif;
+  font-family: var(--mono);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -33,24 +42,14 @@ body {
 .lamp {
   margin-top: 3rem;
   font-size: 5rem;
-  animation: float 3s ease-in-out infinite;
   cursor: default;
   user-select: none;
-  filter: drop-shadow(0 0 20px rgba(179, 102, 255, 0.5));
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
 }
 
 h1 {
   font-size: 2.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--glow), var(--gold));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--gold);
   margin: 0.5rem 0 0.25rem;
 }
 
@@ -62,15 +61,15 @@ h1 {
 
 .wish-box {
   background: var(--card);
-  border: 1px solid rgba(179, 102, 255, 0.2);
-  border-radius: 16px;
+  border: 2px solid var(--edge);
+  border-radius: 6px;
   padding: 2rem;
   width: 90%;
   max-width: 460px;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  box-shadow: 0 0 40px rgba(179, 102, 255, 0.08);
+  box-shadow: 0 3px 0 var(--shadow);
 }
 
 label {
@@ -84,25 +83,21 @@ label {
 
 input, select {
   background: var(--input-bg);
-  border: 1px solid rgba(179, 102, 255, 0.25);
-  border-radius: 10px;
+  border: 2px solid var(--edge);
+  border-radius: 4px;
   padding: 0.7rem 1rem;
   color: var(--text);
   font-family: inherit;
   font-size: 1rem;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
-input:focus, select:focus {
-  border-color: var(--glow);
-}
+input:focus, select:focus { border-color: var(--gold); }
 
-input::placeholder { color: #5a5070; }
+input::placeholder { color: var(--faint); }
 
-.joker-search-wrap {
-  position: relative;
-}
+.joker-search-wrap { position: relative; }
 
 #joker-dropdown {
   position: absolute;
@@ -112,8 +107,8 @@ input::placeholder { color: #5a5070; }
   max-height: 200px;
   overflow-y: auto;
   background: var(--input-bg);
-  border: 1px solid var(--glow);
-  border-radius: 0 0 10px 10px;
+  border: 2px solid var(--gold);
+  border-radius: 0 0 4px 4px;
   z-index: 10;
   display: none;
 }
@@ -124,46 +119,47 @@ input::placeholder { color: #5a5070; }
   padding: 0.6rem 1rem;
   cursor: pointer;
   font-size: 0.95rem;
-  border-bottom: 1px solid rgba(179, 102, 255, 0.1);
+  border-bottom: 1px solid var(--edge);
 }
 
 .joker-option:hover, .joker-option.active {
-  background: rgba(179, 102, 255, 0.15);
+  background: var(--edge);
   color: var(--gold);
 }
 
+/* Flat face over a hard offset shadow, and the button travels down onto it
+   when pressed. No glow, no scale-up. */
 .wish-btn {
-  background: linear-gradient(135deg, var(--glow), #8833cc);
+  background: var(--accent);
   border: none;
-  border-radius: 12px;
+  border-radius: 6px;
   padding: 0.9rem;
-  color: white;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
   font-family: inherit;
   font-size: 1.15rem;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3);
+  box-shadow: 0 4px 0 var(--accent-d);
+  transition: transform 0.06s ease-out, box-shadow 0.06s ease-out;
 }
 
-.wish-btn:hover:not(:disabled) {
-  transform: scale(1.03);
-  box-shadow: 0 6px 30px rgba(179, 102, 255, 0.5);
+.wish-btn:hover:not(:disabled) { filter: brightness(1.08); }
+
+.wish-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--accent-d);
 }
 
 .wish-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  box-shadow: 0 4px 0 var(--shadow);
 }
 
-.wish-btn.searching {
-  animation: pulse 1s ease-in-out infinite;
-}
+.wish-btn.searching { animation: blink 1s steps(2, start) infinite; }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(179, 102, 255, 0.3); }
-  50% { box-shadow: 0 4px 40px rgba(179, 102, 255, 0.7); }
-}
+@keyframes blink { 50% { opacity: 0.72; } }
 
 #result-area {
   margin-top: 2rem;
@@ -175,15 +171,15 @@ input::placeholder { color: #5a5070; }
 .result-card {
   background: var(--card);
   border: 2px solid var(--gold);
-  border-radius: 16px;
+  border-radius: 6px;
   padding: 2rem;
-  animation: reveal 0.5s ease-out;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
+  animation: reveal 0.25s ease-out;
+  box-shadow: 0 3px 0 var(--shadow);
 }
 
 @keyframes reveal {
-  from { opacity: 0; transform: scale(0.9) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
 
 .result-label {
@@ -199,7 +195,7 @@ input::placeholder { color: #5a5070; }
   font-weight: 700;
   color: var(--gold);
   letter-spacing: 0.15em;
-  font-family: 'Courier New', monospace;
+  font-family: var(--mono);
   word-break: break-all;
 }
 
@@ -210,14 +206,14 @@ input::placeholder { color: #5a5070; }
 }
 
 .result-details span {
-  color: var(--glow);
+  color: var(--gold);
   font-weight: 600;
 }
 
 .result-time {
   margin-top: 0.75rem;
   font-size: 0.8rem;
-  color: #5a5070;
+  color: var(--faint);
 }
 
 #boot-status {
@@ -228,9 +224,9 @@ input::placeholder { color: #5a5070; }
 
 .error {
   color: var(--red);
-  background: rgba(233, 69, 96, 0.1);
-  border: 1px solid rgba(233, 69, 96, 0.3);
-  border-radius: 10px;
+  background: rgba(254, 81, 72, 0.1);
+  border: 1px solid rgba(254, 81, 72, 0.35);
+  border-radius: 4px;
   padding: 1rem;
   font-size: 0.9rem;
 }
