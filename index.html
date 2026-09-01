@@ -42,13 +42,19 @@ const html = htm;
 // One document is the whole search. Root keys are the engine's:
 // id, name, description, author, dateCreated, deck, stake, seeds, filter, must, should, mustNot
 const STARTER = `name: Showman early + Perkeo
+description: |
+  INTENT: playable multi-dupe package, not a paper stack.
+  MUST: Showman early — without it the engine's raw stream is a fantasy run,
+  because Motely scores as if Showman is on and does not model the force re-roll.
+  MUST: Perkeo by legendary identity, not a bare joker clause.
+  NOT: Negative Tag is not part of this package; it never rolls ante 1.
 deck: Anaglyph
 stake: White
 must:
   - joker: Showman
     antes: [1, 2, 3]
 should:
-  - joker: Perkeo
+  - legendaryJoker: Perkeo
     antes: [1, 2, 3, 4, 5, 6, 7, 8]
 `;
 
